@@ -243,6 +243,7 @@
     </aside>
 
     <main class="flex-1 bg-black relative flex flex-col h-full w-full">
+        <audio id="remote-audio" autoplay playsinline></audio>
         
         <!-- Mobile Top Bar -->
         <div class="md:hidden flex items-center justify-between p-4 border-b border-neutral-900 bg-black sticky top-0 z-10">
@@ -298,6 +299,12 @@
 
         <div id="call-view" class="absolute inset-0 bg-black z-10 flex flex-col hidden opacity-0 transition-all duration-500 transform scale-95 overflow-hidden">
             
+            <!-- Audio Unmute Fallback Banner -->
+            <button id="audio-unlock-banner" class="hidden absolute top-20 left-1/2 transform -translate-x-1/2 z-40 bg-amber-500 hover:bg-amber-400 text-black font-bold px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce transition-all">
+                <i class="ph-fill ph-speaker-high text-2xl"></i>
+                <span>Tap to Enable Call Audio</span>
+            </button>
+
             <!-- Floating Timer -->
             <div class="absolute top-6 left-1/2 transform -translate-x-1/2 z-30">
                 <div id="call-timer-container" class="bg-neutral-900/80 backdrop-blur-md border border-neutral-800/50 text-neutral-300 px-5 py-2 rounded-full font-mono text-base flex items-center gap-3 hidden shadow-[0_10px_20px_rgba(0,0,0,0.3)] transition-all">
@@ -476,6 +483,8 @@
             // New Video Elements
             videoContainer: document.getElementById('video-container'),
             remoteVideo: document.getElementById('remote-video'),
+            remoteAudio: document.getElementById('remote-audio'),
+            audioUnlockBanner: document.getElementById('audio-unlock-banner'),
             localVideo: document.getElementById('local-video'),
             audioCallUi: document.getElementById('audio-call-ui'),
             cameraBtn: document.getElementById('camera-btn'),
@@ -533,6 +542,12 @@
                     console.log("Tone.js blocked waiting for user gesture");
                 }
             }
+
+            // Pre-unlock the remote audio playback element within user interaction gesture
+            if (els.remoteAudio) {
+                els.remoteAudio.play().catch(() => {});
+            }
+
             if (!localStream) {
                 try {
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -980,10 +995,29 @@
             call.on('stream', (remoteStream) => {
                 stopAudioTones();
                 
-                // Only assign if it's a new stream to prevent interrupting active audio
+                // Ensure all incoming audio tracks are enabled
+                remoteStream.getAudioTracks().forEach(track => {
+                    track.enabled = true;
+                });
+
+                // Assign stream to dedicated audio element for high reliability
+                if (els.remoteAudio.srcObject !== remoteStream) {
+                    els.remoteAudio.srcObject = remoteStream;
+                    els.remoteAudio.volume = 1.0;
+                    
+                    const playPromise = els.remoteAudio.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(err => {
+                            console.warn("Autoplay blocked remote audio:", err);
+                            showAudioUnlockBanner();
+                        });
+                    }
+                }
+
+                // Also assign to video element for video feeds
                 if (els.remoteVideo.srcObject !== remoteStream) {
                     els.remoteVideo.srcObject = remoteStream;
-                    els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
+                    els.remoteVideo.play().catch(() => {});
                 }
                 
                 voicemailStream = remoteStream;
@@ -1031,6 +1065,25 @@
 
             call.on('close', endCall);
             call.on('error', endCall);
+        }
+
+        function showAudioUnlockBanner() {
+            if (els.audioUnlockBanner) {
+                els.audioUnlockBanner.classList.remove('hidden');
+            }
+        }
+
+        if (els.audioUnlockBanner) {
+            els.audioUnlockBanner.addEventListener('click', () => {
+                if (els.remoteAudio) {
+                    els.remoteAudio.play().then(() => {
+                        els.audioUnlockBanner.classList.add('hidden');
+                        showToast("Audio enabled!", "success");
+                    }).catch(err => {
+                        console.error("Manual audio play failed:", err);
+                    });
+                }
+            });
         }
 
         async function autoAnswerVoicemail(call, callerNum) {
@@ -1152,6 +1205,10 @@
         function endCall() {
             clearTimeout(autoAnswerTimeout);
             
+            if (els.audioUnlockBanner) {
+                els.audioUnlockBanner.classList.add('hidden');
+            }
+
             // Stop Voicemail recording if active
             if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
                 activeMediaRecorder.stop();
@@ -1171,10 +1228,11 @@
             
             if(isMuted) toggleMute();
             
-            // Clean up video streams
+            // Clean up video/audio streams
             if (localVideoStream) stopCamera();
             if (localScreenStream) stopScreenShare();
             els.remoteVideo.srcObject = null;
+            els.remoteAudio.srcObject = null;
             checkVideoUI();
             
             // Hide action buttons
