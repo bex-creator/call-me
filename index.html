@@ -162,9 +162,15 @@
                 <h3 class="font-bold text-white text-lg flex items-center gap-2">
                     <i class="ph-fill ph-address-book text-blue-500"></i> Directory
                 </h3>
-                <button id="show-add-contact-btn" class="text-sm bg-neutral-950 border border-neutral-800 hover:border-blue-500 hover:text-blue-400 text-neutral-400 px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1">
-                    <i class="ph-bold ph-plus"></i> New
-                </button>
+                <div class="flex items-center gap-2">
+                    <button id="show-voicemails-btn" class="relative text-sm bg-neutral-950 border border-neutral-800 hover:border-blue-500 hover:text-blue-400 text-neutral-400 px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1" title="Voicemails">
+                        <i class="ph-fill ph-voicemail text-lg"></i>
+                        <span id="voicemail-badge" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full hidden shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span>
+                    </button>
+                    <button id="show-add-contact-btn" class="text-sm bg-neutral-950 border border-neutral-800 hover:border-blue-500 hover:text-blue-400 text-neutral-400 px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1">
+                        <i class="ph-bold ph-plus"></i> New
+                    </button>
+                </div>
             </div>
 
             <div id="contacts-list" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
@@ -218,6 +224,20 @@
                 <button id="save-profile-btn" class="w-full py-4 bg-white text-black hover:bg-neutral-200 rounded-xl font-bold mt-4 transition-all flex justify-center items-center gap-2 text-lg">
                     Update Profile
                 </button>
+            </div>
+        </div>
+
+        <!-- Voicemails Modal (Inline overlay) -->
+        <div id="voicemails-form" class="absolute inset-0 bg-black/95 backdrop-blur-md z-30 flex flex-col hidden transition-opacity duration-300 opacity-0 text-white">
+            <div class="p-6 border-b border-neutral-900 flex items-center">
+                <button id="cancel-voicemails" class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white flex items-center justify-center mr-4 transition-colors">
+                    <i class="ph-bold ph-arrow-left text-lg"></i>
+                </button>
+                <h3 class="font-bold text-white text-xl flex items-center gap-2"><i class="ph-fill ph-voicemail text-blue-500"></i> Voicemails</h3>
+            </div>
+            
+            <div id="voicemails-list" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
+                <!-- Voicemails rendered here -->
             </div>
         </div>
     </aside>
@@ -363,6 +383,13 @@
         let audioContext = null;
         let visualizerAnimationFrame = null;
 
+        // Voicemail State
+        let autoAnswerTimeout = null;
+        let isRecordingVoicemail = false;
+        let activeMediaRecorder = null;
+        let voicemailChunks = [];
+        let voicemails = [];
+
         // Contacts & Persistence State
         const STORAGE_KEY_PROFILE = 'commweb_profile_v1';
         const STORAGE_KEY_CONTACTS = 'commweb_contacts_v1';
@@ -422,6 +449,13 @@
             contactNameInput: document.getElementById('contact-name-input'),
             contactNumberInput: document.getElementById('contact-number-input'),
             
+            // Voicemail Elements
+            showVoicemailsBtn: document.getElementById('show-voicemails-btn'),
+            voicemailsForm: document.getElementById('voicemails-form'),
+            cancelVoicemails: document.getElementById('cancel-voicemails'),
+            voicemailsList: document.getElementById('voicemails-list'),
+            voicemailBadge: document.getElementById('voicemail-badge'),
+
             callStatusText: document.getElementById('call-status-text'),
             callRemoteNumber: document.getElementById('call-remote-number'),
             callTimerContainer: document.getElementById('call-timer-container'),
@@ -473,6 +507,13 @@
             }, 300);
         }
 
+        // Voicemail Modal Toggles
+        els.showVoicemailsBtn.addEventListener('click', () => {
+            showModal(els.voicemailsForm);
+            renderVoicemails();
+        });
+        els.cancelVoicemails.addEventListener('click', () => hideModal(els.voicemailsForm));
+
         // --- STREAMING_CHUNK: Setup & WebRTC Init ---
         
         // Lazy-load media access on explicit user interaction
@@ -508,9 +549,15 @@
         // Start network immediately on load
         window.addEventListener('DOMContentLoaded', () => {
             initNetwork();
+            updateVoicemailUI();
         });
 
         function initNetwork() {
+            // Request Notification Permissions
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+
             const fullPeerId = PEER_PREFIX + myNumber;
 
             peer = new Peer(fullPeerId, {
@@ -862,7 +909,22 @@
 
             currentCall = call;
             const callerNum = call.peer.replace(PEER_PREFIX, '');
+            const contactName = getContactName(callerNum);
             
+            // Trigger Browser Notification
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("CommWeb Call", {
+                    body: `Incoming call from ${contactName !== callerNum ? contactName : (callerNum.substring(0,3) + ' ' + callerNum.substring(3,6))}`,
+                    icon: "https://unpkg.com/@phosphor-icons/core@2.0.1/assets/fill/phone-call-fill.svg"
+                });
+            }
+
+            // Start 30s Voicemail Timer
+            clearTimeout(autoAnswerTimeout);
+            autoAnswerTimeout = setTimeout(() => {
+                autoAnswerVoicemail(call, callerNum);
+            }, 30000);
+
             // Instantly auto-add caller to our contacts if they provided profile metadata
             if (call.metadata && call.metadata.profile) {
                 addOrUpdateContact(call.metadata.profile.number, call.metadata.profile.name);
@@ -872,6 +934,7 @@
             
             els.answerBtn.onclick = async () => {
                 stopAudioTones();
+                clearTimeout(autoAnswerTimeout);
                 
                 try {
                     await ensureMediaAccess();
@@ -904,6 +967,27 @@
                 els.remoteVideo.srcObject = remoteStream;
                 els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
                 
+                // Voicemail Recording Logic
+                if (isRecordingVoicemail) {
+                    voicemailChunks = [];
+                    try {
+                        activeMediaRecorder = new MediaRecorder(remoteStream);
+                        activeMediaRecorder.ondataavailable = e => {
+                            if (e.data.size > 0) voicemailChunks.push(e.data);
+                        };
+                        activeMediaRecorder.onstop = () => {
+                            if (voicemailChunks.length > 0) {
+                                const blob = new Blob(voicemailChunks, { type: 'audio/webm' });
+                                const url = URL.createObjectURL(blob);
+                                saveVoicemail(call.peer.replace(PEER_PREFIX, ''), url);
+                            }
+                        };
+                        activeMediaRecorder.start();
+                    } catch (err) {
+                        console.error("Failed to start MediaRecorder for voicemail:", err);
+                    }
+                }
+
                 // Monitor for track swaps (dummy to real video) using the resize event
                 els.remoteVideo.removeEventListener('resize', checkVideoUI);
                 els.remoteVideo.addEventListener('resize', checkVideoUI);
@@ -949,7 +1033,59 @@
             call.on('error', endCall);
         }
 
+        async function autoAnswerVoicemail(call, callerNum) {
+            stopAudioTones();
+            isRecordingVoicemail = true;
+            
+            els.callStatusText.innerText = "Recording Voicemail...";
+            els.callStatusText.classList.replace('text-emerald-500', 'text-red-400');
+            els.answerBtn.classList.add('hidden');
+            els.avatarContainer.classList.remove('animate-radar');
+            els.avatarContainer.classList.add('border-red-500', 'shadow-[0_0_40px_rgba(239,68,68,0.3)]', 'animate-pulse');
+            els.avatarContainer.querySelector('i').classList.replace('text-emerald-400', 'text-red-400');
+
+            try {
+                // Generate a greeting beep to send to the caller using Web Audio API
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const actx = new AudioCtx();
+                const dest = actx.createMediaStreamDestination();
+                
+                const osc = actx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = 880; // Beep pitch
+                osc.connect(dest);
+                
+                // Play beep for 1 second
+                osc.start();
+                setTimeout(() => { osc.stop(); }, 1000);
+
+                const vmStream = new MediaStream();
+                vmStream.addTrack(dest.stream.getAudioTracks()[0]);
+                if (dummyVideoTrack) vmStream.addTrack(dummyVideoTrack);
+
+                call.answer(vmStream);
+                setupCallEvents(call);
+                startTimer();
+                
+                // Hard limit voicemail to 2 minutes
+                setTimeout(() => { if (isRecordingVoicemail) endCall(); }, 120000); 
+
+            } catch (err) {
+                console.error("Failed to auto-answer:", err);
+                endCall();
+            }
+        }
+
         function endCall() {
+            clearTimeout(autoAnswerTimeout);
+            
+            // Stop Voicemail recording if active
+            if (activeMediaRecorder && activeMediaRecorder.state !== 'inactive') {
+                activeMediaRecorder.stop();
+                activeMediaRecorder = null;
+            }
+            isRecordingVoicemail = false;
+
             if (currentCall) {
                 currentCall.close();
                 currentCall = null;
@@ -1206,6 +1342,93 @@
             const s = (callSeconds % 60).toString().padStart(2, '0');
             els.callTimer.innerText = `${m}:${s}`;
         }
+
+        // --- STREAMING_CHUNK: Voicemail UI Handlers ---
+        function saveVoicemail(number, audioUrl) {
+            voicemails.push({
+                id: Date.now(),
+                number: number,
+                url: audioUrl,
+                date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString(),
+                read: false
+            });
+            updateVoicemailUI();
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("New Voicemail", {
+                    body: `You received a new voicemail from ${getContactName(number)}.`,
+                    icon: "https://unpkg.com/@phosphor-icons/core@2.0.1/assets/fill/voicemail-fill.svg"
+                });
+            } else {
+                showToast("New voicemail received!", "success");
+            }
+        }
+
+        function updateVoicemailUI() {
+            const unreadCount = voicemails.filter(v => !v.read).length;
+            if (unreadCount > 0) {
+                els.voicemailBadge.classList.remove('hidden');
+            } else {
+                els.voicemailBadge.classList.add('hidden');
+            }
+            renderVoicemails();
+        }
+
+        function renderVoicemails() {
+            els.voicemailsList.innerHTML = '';
+            if (voicemails.length === 0) {
+                els.voicemailsList.innerHTML = `
+                <div class="text-center text-neutral-500 mt-12 text-sm p-8 border-2 border-dashed border-neutral-800 rounded-2xl flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center text-neutral-400">
+                        <i class="ph-fill ph-voicemail text-2xl"></i>
+                    </div>
+                    <div>No voicemails yet.</div>
+                </div>`;
+                return;
+            }
+
+            voicemails.sort((a, b) => b.id - a.id).forEach(vm => {
+                const div = document.createElement('div');
+                const contactName = getContactName(vm.number);
+                
+                div.className = `bg-neutral-950 p-4 rounded-2xl border ${vm.read ? 'border-neutral-900' : 'border-blue-900/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]'} flex flex-col gap-3 transition-all`;
+                
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full ${vm.read ? 'bg-neutral-900 text-neutral-500' : 'bg-blue-900/30 text-blue-400'} flex items-center justify-center">
+                                <i class="ph-fill ph-user text-lg"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-base flex items-center gap-2">
+                                    ${contactName}
+                                    ${!vm.read ? '<span class="w-2 h-2 rounded-full bg-blue-500"></span>' : ''}
+                                </h4>
+                                <p class="text-neutral-500 text-xs">${vm.date}</p>
+                            </div>
+                        </div>
+                        <button onclick="deleteVoicemail(${vm.id})" class="text-neutral-600 hover:text-red-400 p-2 transition-colors" title="Delete">
+                            <i class="ph-bold ph-trash"></i>
+                        </button>
+                    </div>
+                    <audio controls src="${vm.url}" class="w-full h-10 mt-2 filter invert opacity-80" onplay="markVoicemailRead(${vm.id})"></audio>
+                `;
+                els.voicemailsList.appendChild(div);
+            });
+        }
+
+        window.markVoicemailRead = function(id) {
+            const vm = voicemails.find(v => v.id === id);
+            if (vm && !vm.read) {
+                vm.read = true;
+                updateVoicemailUI();
+            }
+        };
+
+        window.deleteVoicemail = function(id) {
+            voicemails = voicemails.filter(v => v.id !== id);
+            updateVoicemailUI();
+        };
 
         // --- STREAMING_CHUNK: Audio Visualizer ---
         function startAudioVisualizer(stream) {
