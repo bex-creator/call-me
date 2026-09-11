@@ -271,30 +271,30 @@
                 <div id="dialer-contact-label" class="h-6 mb-4 text-emerald-400 font-bold text-sm tracking-widest uppercase opacity-0 transition-opacity text-center w-full truncate px-4"></div>
 
                 <!-- Display -->
-                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-20 md:h-24 flex items-center justify-center mb-6 md:mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
-                    <input type="text" id="dial-input" readonly class="bg-transparent text-center text-4xl md:text-5xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
+                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-16 md:h-24 flex items-center justify-center mb-4 md:mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
+                    <input type="text" id="dial-input" readonly class="bg-transparent text-center text-3xl md:text-5xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
                 </div>
                 
                 <!-- Modern Numpad -->
-                <div class="grid grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8 w-full">
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
+                <div class="grid grid-cols-3 gap-2 md:gap-5 mb-4 md:mb-8 w-full max-w-[280px] mx-auto">
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
                     <div></div>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
-                    <button class="numpad-btn text-neutral-500 text-2xl sm:text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
+                    <button class="numpad-btn text-neutral-500 text-xl sm:text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
                         <i class="ph-fill ph-backspace"></i>
                     </button>
                 </div>
 
                 <!-- Call Action -->
-                <button id="make-call-btn" class="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all text-xl font-bold group">
+                <button id="make-call-btn" class="w-full h-12 md:h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all text-lg md:text-xl font-bold group">
                     <i class="ph-fill ph-phone group-hover:rotate-12 transition-transform"></i> Call
                 </button>
             </div>
@@ -1265,11 +1265,14 @@
             els.screenBtn.classList.add('hidden');
             els.screenBtn.classList.remove('md:flex');
             
+            // Re-enable dialer inputs
+            els.dialInput.readOnly = true; 
+            
             // Switch UI back to dialer
             els.callView.classList.add('opacity-0');
             setTimeout(() => {
                 els.callView.classList.add('hidden');
-                els.dialerView.classList.remove('hidden', 'opacity-0');
+                els.dialerView.classList.remove('hidden', 'opacity-0', 'scale-95', 'pointer-events-none');
             }, 300);
 
             els.hangupBtn.onclick = endCall;
