@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Voice Chat Room</title>
+    <!-- Tailwind for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PeerJS for WebRTC signaling without custom backend/Firebase -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body {
+            background-color: #0f172a; /* Slate 900 */
+            color: #f8fafc; /* Slate 50 */
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Simple pulse animation for active speakers (simulated visually) */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        
+        .mic-active {
+            animation: pulse-ring 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+        
+        <!-- Header -->
+        <div class="bg-slate-900 p-6 text-center border-b border-slate-700">
+            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                Open Voice Room
+            </h1>
+            <p class="text-slate-400 text-sm mt-2">Peer-to-Peer Audio Chat</p>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="p-6">
+            
+            <!-- Room Status / Join Section -->
+            <div id="setup-section" class="space-y-4">
+                <div class="text-center p-4 bg-slate-700/50 rounded-xl border border-slate-600">
+                    <p id="setup-text" class="text-sm text-slate-300 mb-2">Create a new voice room or join via link. Requires microphone access.</p>
+                </div>
+                <button id="join-btn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                    <span id="join-btn-text">Start / Join Room</span>
+                </button>
+                <div id="error-msg" class="text-red-400 text-sm text-center hidden"></div>
+            </div>
+
+            <!-- Active Room Section (Hidden initially) -->
+            <div id="room-section" class="hidden space-y-6">
+                
+                <!-- Share Link Area (NEW) -->
+                <div id="share-container" class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 flex flex-col gap-2 shadow-inner">
+                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Invite Others to this Room</span>
+                    <div class="flex gap-2">
+                        <input type="text" id="share-link" readonly class="bg-slate-800 text-sm text-slate-200 px-3 py-2 rounded-lg border border-slate-600 w-full focus:outline-none focus:border-blue-500 select-all transition-colors">
+                        <button id="copy-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg text-white">Copy</button>
+                    </div>
+                </div>
+
+                <!-- Status Bar -->
+                <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700">
+                    <div class="flex items-center gap-2 text-sm text-emerald-400">
+                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                        Connected
+                    </div>
+                    <div class="text-sm text-slate-400">
+                        Peers: <span id="peer-count" class="font-bold text-white">0</span>
+                    </div>
+                </div>
+
+                <!-- My Controls -->
+                <div class="flex flex-col items-center py-4">
+                    <button id="mute-btn" class="w-20 h-20 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20 mic-active text-white">
+                        <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                        
+                        <svg id="mic-off-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                    </button>
+                    <span id="mute-text" class="mt-3 text-slate-300 font-medium">Microphone On</span>
+                </div>
+
+                <!-- Hidden audio elements container for incoming streams -->
+                <div id="audio-container" class="hidden"></div>
+                
+                <div class="text-xs text-center text-slate-500">
+                    Your ID: <span id="my-id-display" class="font-mono bg-slate-900 px-1 rounded select-all"></span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check URL hash to determine if we are creating a room or joining one
+        const isHost = !window.location.hash;
+        let hostId = isHost ? null : window.location.hash.substring(1);
+        let myId = null;
+
+        let peer;
+        let localStream;
+        let connections = {}; // Active media calls
+        
+        // Host state
+        let knownPeers = []; 
+        let guestConnections = []; 
+
+        // UI Elements
+        const setupSection = document.getElementById('setup-section');
+        const setupText = document.getElementById('setup-text');
+        const roomSection = document.getElementById('room-section');
+        const joinBtn = document.getElementById('join-btn');
+        const joinBtnText = document.getElementById('join-btn-text');
+        const errorMsg = document.getElementById('error-msg');
+        const peerCountEl = document.getElementById('peer-count');
+        const audioContainer = document.getElementById('audio-container');
+        const muteBtn = document.getElementById('mute-btn');
+        const micIcon = document.getElementById('mic-icon');
+        const micOffIcon = document.getElementById('mic-off-icon');
+        const muteText = document.getElementById('mute-text');
+        const myIdDisplay = document.getElementById('my-id-display');
+        const shareLinkInput = document.getElementById('share-link');
+        const copyBtn = document.getElementById('copy-btn');
+
+        let isMuted = false;
+
+        // Initialize UI Text based on role
+        if (!isHost) {
+            setupText.innerText = "You've been invited to join a room! Ensure your microphone is allowed.";
+            joinBtnText.innerText = "Join Voice Room";
+        } else {
+            setupText.innerText = "Create a new peer-to-peer voice room. You will get a link to share.";
+            joinBtnText.innerText = "Start New Room";
+        }
+
+        joinBtn.addEventListener('click', initializeCall);
+        muteBtn.addEventListener('click', toggleMute);
+        
+        // Copy Link Button Logic
+        copyBtn.addEventListener('click', () => {
+            shareLinkInput.select();
+            document.execCommand('copy');
+            copyBtn.innerText = 'Copied!';
+            copyBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+            copyBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
+            setTimeout(() => {
+                copyBtn.innerText = 'Copy';
+                copyBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                copyBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
+            }, 2000);
+        });
+
+        async function initializeCall() {
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Connecting...';
+            errorMsg.classList.add('hidden');
+
+            try {
+                // 1. Get microphone access
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                
+                // 2. Initialize PeerJS with a completely random ID to avoid collisions
+                peer = new Peer({
+                    host: '0.peerjs.com',
+                    port: 443,
+                    path: '/',
+                    secure: true,
+                    config: {'iceServers': [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]}
+                });
+
+                peer.on('open', (id) => {
+                    console.log('My peer ID is: ' + id);
+                    myId = id;
+                    myIdDisplay.innerText = id + (isHost ? " (Room Host)" : "");
+                    
+                    setupSection.classList.add('hidden');
+                    roomSection.classList.remove('hidden');
+                    
+                    if (isHost) {
+                        // Host Mode: Set our ID in the URL and display the share link
+                        hostId = id;
+                        window.location.hash = id;
+                        shareLinkInput.value = window.location.href;
+                        knownPeers.push(id); 
+                        setupHostListeners();
+                    } else {
+                        // Guest Mode: Connect to the host using the URL hash
+                        shareLinkInput.value = window.location.href; 
+                        joinRoom(hostId);
+                    }
+                });
+
+                // Listen for WebRTC media connections
+                peer.on('call', (call) => {
+                    console.log('Incoming audio call from', call.peer);
+                    call.answer(localStream); // Send our microphone stream back
+                    handleCallStream(call);
+                });
+
+                peer.on('error', (err) => {
+                    console.error('Peer error:', err);
+                    showError('Connection error: ' + err.type + '. Ensure WebRTC is not blocked.');
+                    resetUI();
+                });
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                showError('Could not access microphone. Please allow permissions in your browser.');
+                resetUI();
+            }
+        }
+
+        // --- HOST LOGIC ---
+        function setupHostListeners() {
+            // Listen for signaling data connections from guests
+            peer.on('connection', (conn) => {
+                conn.on('open', () => {
+                    guestConnections.push(conn);
+                });
+
+                conn.on('data', (data) => {
+                    if (data.type === 'REGISTER') {
+                        const guestId = data.id;
+                        console.log('Guest joined the room:', guestId);
+                        
+                        // Send the new guest the list of everyone currently in the room
+                        conn.send({ type: 'PEER_LIST', peers: knownPeers });
+                        
+                        // Add the guest to the master list so future guests can call them
+                        if (!knownPeers.includes(guestId)) {
+                            knownPeers.push(guestId);
+                        }
+                    }
+                });
+
+                conn.on('close', () => {
+                    guestConnections = guestConnections.filter(c => c !== conn);
+                });
+            });
+        }
+
+        // --- GUEST LOGIC ---
+        function joinRoom(targetHostId) {
+            console.log('Connecting to room host:', targetHostId);
+            const conn = peer.connect(targetHostId, { reliable: true });
+
+            conn.on('open', () => {
+                console.log('Connected to host. Registering...');
+                conn.send({ type: 'REGISTER', id: myId });
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'PEER_LIST') {
+                    console.log('Received peer list from host:', data.peers);
+                    // Call everyone already in the room
+                    data.peers.forEach(peerId => {
+                        if (peerId !== myId) {
+                            initiateCall(peerId);
+                        }
+                    });
+                }
+            });
+            
+            conn.on('error', (err) => {
+                showError("Failed to connect to the Room Host. They may have left.");
+            });
+        }
+
+        // --- SHARED MEDIA LOGIC ---
+        function initiateCall(peerId) {
+            if (connections[peerId]) return;
+            console.log('Initiating audio call to peer:', peerId);
+            const call = peer.call(peerId, localStream);
+            handleCallStream(call);
+        }
+
+        function handleCallStream(call) {
+            connections[call.peer] = call;
+            updatePeerCount();
+
+            call.on('stream', (remoteStream) => {
+                // Prevent duplicate audio elements
+                if (!document.getElementById(`audio-${call.peer}`)) {
+                    console.log('Playing stream from', call.peer);
+                    const audioElement = document.createElement('audio');
+                    audioElement.id = `audio-${call.peer}`;
+                    audioElement.srcObject = remoteStream;
+                    
+                    // Critical to bypass browser autoplay restrictions
+                    audioElement.autoplay = true;
+                    audioElement.play().catch(e => console.log('Audio play prevented (User interaction needed):', e));
+                    
+                    audioContainer.appendChild(audioElement);
+                }
+            });
+
+            call.on('close', () => removeAudioElement(call.peer));
+            call.on('error', () => removeAudioElement(call.peer));
+        }
+
+        function removeAudioElement(peerId) {
+            const el = document.getElementById(`audio-${peerId}`);
+            if (el) el.remove();
+            delete connections[peerId];
+            updatePeerCount();
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            
+            // Toggle all audio tracks (mute/unmute mic)
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+
+            // UI Updates
+            if (isMuted) {
+                muteBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20', 'mic-active');
+                muteBtn.classList.add('bg-red-600', 'hover:bg-red-500', 'shadow-red-500/20');
+                micIcon.classList.add('hidden');
+                micOffIcon.classList.remove('hidden');
+                muteText.innerText = 'Microphone Muted';
+                muteText.classList.replace('text-slate-300', 'text-red-400');
+            } else {
+                muteBtn.classList.remove('bg-red-600', 'hover:bg-red-500', 'shadow-red-500/20');
+                muteBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20', 'mic-active');
+                micIcon.classList.remove('hidden');
+                micOffIcon.classList.add('hidden');
+                muteText.innerText = 'Microphone On';
+                muteText.classList.replace('text-red-400', 'text-slate-300');
+            }
+        }
+
+        function updatePeerCount() {
+            peerCountEl.innerText = Object.keys(connections).length;
+        }
+
+        function showError(msg) {
+            errorMsg.innerText = msg;
+            errorMsg.classList.remove('hidden');
+        }
+
+        function resetUI() {
+            joinBtn.disabled = false;
+            joinBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+                <span id="join-btn-text">Try Again</span>
+            `;
+        }
+        
+        window.addEventListener('beforeunload', () => {
+            if (peer) peer.destroy();
+        });
+    </script>
+</body>
+</html>
