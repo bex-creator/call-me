@@ -409,6 +409,7 @@
         // Contacts & Persistence State
         const STORAGE_KEY_PROFILE = 'commweb_profile_v1';
         const STORAGE_KEY_CONTACTS = 'commweb_contacts_v1';
+        const STORAGE_KEY_VOICEMAILS = 'commweb_voicemails_v1';
         let contacts = [];
 
         // Load Persistent Data from LocalStorage
@@ -426,6 +427,15 @@
         const savedContacts = localStorage.getItem(STORAGE_KEY_CONTACTS);
         if (savedContacts) {
             contacts = JSON.parse(savedContacts);
+        }
+
+        const savedVoicemails = localStorage.getItem(STORAGE_KEY_VOICEMAILS);
+        if (savedVoicemails) {
+            try {
+                voicemails = JSON.parse(savedVoicemails);
+            } catch(e) {
+                console.error("Failed to parse saved voicemails", e);
+            }
         }
 
         // Audio Generation
@@ -1200,8 +1210,13 @@
                     if (voicemailChunks.length > 0) {
                         const mimeType = recorder.mimeType || 'audio/webm';
                         const blob = new Blob(voicemailChunks, { type: mimeType });
-                        const url = URL.createObjectURL(blob);
-                        saveVoicemail(callerNum, url);
+                        
+                        // Convert blob to base64 for persistent storage in localStorage
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = () => {
+                            saveVoicemail(callerNum, reader.result);
+                        };
                     }
                 };
                 
@@ -1480,6 +1495,16 @@
         }
 
         // --- STREAMING_CHUNK: Voicemail UI Handlers ---
+        function saveVoicemailsToStorage() {
+            try {
+                // We keep voicemails in local storage to persist across reloads
+                localStorage.setItem(STORAGE_KEY_VOICEMAILS, JSON.stringify(voicemails));
+            } catch(e) {
+                console.error("Storage full or error saving voicemail", e);
+                showToast("Storage quota exceeded. Cannot save more voicemails.", "error");
+            }
+        }
+
         function saveVoicemail(number, audioUrl) {
             voicemails.push({
                 id: Date.now(),
@@ -1488,6 +1513,7 @@
                 date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString(),
                 read: false
             });
+            saveVoicemailsToStorage();
             updateVoicemailUI();
             
             if ("Notification" in window && Notification.permission === "granted") {
@@ -1557,12 +1583,14 @@
             const vm = voicemails.find(v => v.id === id);
             if (vm && !vm.read) {
                 vm.read = true;
+                saveVoicemailsToStorage();
                 updateVoicemailUI();
             }
         };
 
         window.deleteVoicemail = function(id) {
             voicemails = voicemails.filter(v => v.id !== id);
+            saveVoicemailsToStorage();
             updateVoicemailUI();
         };
 
