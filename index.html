@@ -99,31 +99,14 @@
 </head>
 <body class="h-screen w-full flex overflow-hidden bg-black text-white">
 
-    <div id="setup-screen" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
-        <div class="bg-neutral-950 border border-neutral-900 max-w-md w-full rounded-3xl shadow-2xl p-10 text-center flex flex-col items-center transform transition-all">
-            <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(37,99,235,0.2)]">
-                <i class="ph-fill ph-phone-call text-4xl"></i>
-            </div>
-            <h1 class="text-3xl font-bold text-white mb-3 tracking-tight">CommWeb</h1>
-            <p class="text-neutral-400 text-sm mb-8 leading-relaxed px-4">Connect securely using peer-to-peer technology. No servers, just direct connections.</p>
-            
-            <div class="w-full mb-8 text-left">
-                <label class="block text-sm text-neutral-400 font-semibold mb-2 ml-1">How should others see you?</label>
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-500">
-                        <i class="ph-fill ph-user text-lg"></i>
-                    </div>
-                    <input type="text" id="setup-name-input" class="w-full bg-neutral-900 text-white pl-11 pr-4 py-3.5 rounded-xl border border-neutral-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all text-lg font-medium" placeholder="Your Display Name">
-                </div>
-            </div>
-
-            <button id="start-app-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98] flex items-center justify-center gap-2 text-lg group">
-                Initialize Connection <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>
-            </button>
-            <div id="setup-error" class="text-red-400 bg-red-950/30 p-4 rounded-xl text-sm mt-4 hidden w-full border border-red-900/30 flex items-start gap-2 text-left">
-                <i class="ph-fill ph-warning-circle text-lg mt-0.5"></i>
-                <span id="setup-error-text"></span>
-            </div>
+    <div id="splash-screen" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+        <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(37,99,235,0.2)] animate-pulse">
+            <i class="ph-fill ph-phone-call text-4xl"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-white mb-3 tracking-tight">CommWeb</h1>
+        <div class="flex items-center gap-2 text-blue-400 font-medium mt-4">
+            <i id="splash-icon" class="ph-bold ph-spinner animate-spin text-xl"></i>
+            <span id="splash-text">Connecting to network...</span>
         </div>
     </div>
 
@@ -370,6 +353,7 @@
         let myProfile = { name: "Guest User", number: "" };
         let peer = null;
         let localStream = null;
+        let dummyVideoTrack = null;
         let currentCall = null;
         let isMuted = false;
         
@@ -407,10 +391,9 @@
 
         // --- DOM ELEMENT CACHE ---
         const els = {
-            setupScreen: document.getElementById('setup-screen'),
-            setupNameInput: document.getElementById('setup-name-input'),
-            startBtn: document.getElementById('start-app-btn'),
-            setupError: document.getElementById('setup-error'),
+            splashScreen: document.getElementById('splash-screen'),
+            splashIcon: document.getElementById('splash-icon'),
+            splashText: document.getElementById('splash-text'),
             
             sidebar: document.getElementById('sidebar'),
             mobileMenuBtn: document.getElementById('mobile-menu-btn'),
@@ -474,9 +457,6 @@
             els.sidebar.classList.remove('absolute', 'inset-y-0', 'left-0', 'w-4/5', 'max-w-[320px]', 'shadow-2xl');
         });
 
-        // Initialize setup screen with saved name
-        els.setupNameInput.value = myProfile.name === "Guest User" ? "" : myProfile.name;
-
         // --- UI Helpers for Modals ---
         function showModal(formEl) {
             formEl.classList.remove('hidden');
@@ -494,76 +474,86 @@
         }
 
         // --- STREAMING_CHUNK: Setup & WebRTC Init ---
-        els.startBtn.addEventListener('click', async () => {
-            // Save newly entered name if provided
-            const enteredName = els.setupNameInput.value.trim();
-            if (enteredName) {
-                myProfile.name = enteredName;
-                localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(myProfile));
+        
+        // Lazy-load media access on explicit user interaction
+        async function ensureMediaAccess() {
+            if (!audioInitialized) {
+                try {
+                    await Tone.start();
+                    initToneJS();
+                } catch (e) {
+                    console.log("Tone.js blocked waiting for user gesture");
+                }
             }
-
-            els.startBtn.disabled = true;
-            els.startBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-xl mr-2 inline-block"></i> Connecting...`;
-            els.setupError.classList.add('hidden');
-
-            try {
-                // Init Audio Context
-                await Tone.start();
-                initToneJS();
-
-                // Get Mic Permission
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                
-                // Gen Number & Init Peer
-                myNumber = Math.floor(100000 + Math.random() * 900000).toString();
-                const fullPeerId = PEER_PREFIX + myNumber;
-
-                peer = new Peer(fullPeerId, {
-                    host: '0.peerjs.com',
-                    port: 443,
-                    path: '/',
-                    secure: true
-                });
-
-                peer.on('open', (id) => {
-                    console.log('Connected to signaling with ID:', id);
-                    els.myNumDisplay.innerText = `${myNumber.substring(0,3)} ${myNumber.substring(3,6)}`;
-                    els.myNameDisplay.innerText = myProfile.name;
+            if (!localStream) {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                     
-                    // Hide setup, show main UI with animation
-                    els.setupScreen.classList.add('opacity-0', 'scale-105');
-                    setTimeout(() => els.setupScreen.classList.add('hidden'), 300);
-                    
-                    renderContacts();
-                });
-
-                peer.on('call', handleIncomingCall);
-
-                // Listen for incoming data connections (Background Profile Exchanges)
-                peer.on('connection', (conn) => {
-                    conn.on('data', (data) => {
-                        if (data.type === 'PROFILE_EXCHANGE' && data.profile) {
-                            addOrUpdateContact(data.profile.number, data.profile.name);
-                        }
-                    });
-                });
-
-                peer.on('error', (err) => {
-                    console.error('Peer error:', err);
-                    els.setupError.classList.remove('hidden');
-                    document.getElementById('setup-error-text').innerText = "Connection Error: " + err.type;
-                    els.startBtn.disabled = false;
-                    els.startBtn.innerHTML = `Initialize Connection <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>`;
-                });
-
-            } catch (err) {
-                console.error("Setup failed:", err);
-                els.setupError.classList.remove('hidden');
-                document.getElementById('setup-error-text').innerText = "Microphone access denied or unavailable. Please check browser permissions.";
-                els.startBtn.disabled = false;
-                els.startBtn.innerHTML = `Try Again <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>`;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 2; 
+                    canvas.height = 2;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(0, 0, 2, 2);
+                    const dummyStream = canvas.captureStream(1); 
+                    dummyVideoTrack = dummyStream.getVideoTracks()[0];
+                    localStream.addTrack(dummyVideoTrack);
+                } catch(e) {
+                    showToast("Microphone access is required for calls.", "error");
+                    throw e;
+                }
             }
+        }
+
+        // Start network immediately on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initNetwork();
         });
+
+        function initNetwork() {
+            const fullPeerId = PEER_PREFIX + myNumber;
+
+            peer = new Peer(fullPeerId, {
+                host: '0.peerjs.com',
+                port: 443,
+                path: '/',
+                secure: true
+            });
+
+            peer.on('open', (id) => {
+                console.log('Connected to signaling with ID:', id);
+                els.myNumDisplay.innerText = `${myNumber.substring(0,3)} ${myNumber.substring(3,6)}`;
+                els.myNameDisplay.innerText = myProfile.name;
+                
+                // Hide splash screen smoothly
+                els.splashScreen.classList.add('opacity-0', 'scale-105');
+                setTimeout(() => els.splashScreen.classList.add('hidden'), 500);
+                
+                renderContacts();
+                
+                if(myProfile.name === "Guest User") {
+                    showToast("Signed in. Edit profile to change name.", "success");
+                }
+            });
+
+            peer.on('call', handleIncomingCall);
+
+            peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    if (data.type === 'PROFILE_EXCHANGE' && data.profile) {
+                        addOrUpdateContact(data.profile.number, data.profile.name);
+                    }
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                els.splashText.innerText = "Connection Error: " + err.type;
+                els.splashText.classList.replace('text-blue-400', 'text-red-400');
+                els.splashIcon.classList.replace('ph-spinner', 'ph-warning-circle');
+                els.splashIcon.classList.remove('animate-spin');
+            });
+        }
 
         // Copy Number
         els.copyNumBtn.addEventListener('click', () => {
@@ -667,9 +657,9 @@
         // Save Contact
         els.saveContactBtn.addEventListener('click', () => {
             const name = els.contactNameInput.value.trim();
-            const num = els.contactNumberInput.value.trim();
+            const num = els.contactNumberInput.value.replace(/\D/g, ''); // Extract only digits
             
-            if (name && num.length === 6 && !isNaN(num)) {
+            if (name && num.length === 6) {
                 addOrUpdateContact(num, name);
                 els.cancelAddContact.click();
                 showToast(`Contact saved: ${name}`, 'success');
@@ -823,7 +813,7 @@
         els.cameraBtn.addEventListener('click', toggleCamera);
         els.screenBtn.addEventListener('click', toggleScreenShare);
 
-        function initiateCall() {
+        async function initiateCall() {
             const targetNum = els.dialInput.value.replace(/\s/g, '');
             if (targetNum.length !== 6) {
                 showToast("Enter a 6-digit number to call.");
@@ -834,15 +824,16 @@
                 return;
             }
 
+            try {
+                await ensureMediaAccess();
+            } catch (e) {
+                return; // Mic access failed/denied
+            }
+
             const targetPeerId = PEER_PREFIX + targetNum;
             showCallScreen(targetNum, "Calling...", true);
             
-            // Ensure audio is initialized if they bypass setup somehow
-            if(!audioInitialized) {
-                Tone.start().then(initToneJS).then(playRingbackTone);
-            } else {
-                playRingbackTone();
-            }
+            playRingbackTone();
 
             // Pass our profile metadata so the receiver can auto-add us to their contacts
             currentCall = peer.call(targetPeerId, localStream, { metadata: { profile: myProfile } });
@@ -862,9 +853,9 @@
                 return;
             }
 
-            // Ensure audio context is alive
+            // Play ringtone (might be blocked silently by browser if no user gesture has occurred yet, which is normal)
             if(!audioInitialized) {
-                Tone.start().then(initToneJS).then(playIncomingRingtone);
+                Tone.start().then(initToneJS).then(playIncomingRingtone).catch(e => console.log("Audio block: user gesture required"));
             } else {
                 playIncomingRingtone();
             }
@@ -878,10 +869,17 @@
             }
 
             showCallScreen(callerNum, "Incoming Call", false);
-            playIncomingRingtone();
             
-            els.answerBtn.onclick = () => {
+            els.answerBtn.onclick = async () => {
                 stopAudioTones();
+                
+                try {
+                    await ensureMediaAccess();
+                } catch(e) {
+                    endCall();
+                    return;
+                }
+
                 els.answerBtn.classList.add('hidden');
                 els.callStatusText.innerText = "Connecting...";
                 els.avatarContainer.classList.remove('animate-radar');
@@ -905,6 +903,10 @@
                 
                 els.remoteVideo.srcObject = remoteStream;
                 els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
+                
+                // Monitor for track swaps (dummy to real video) using the resize event
+                els.remoteVideo.removeEventListener('resize', checkVideoUI);
+                els.remoteVideo.addEventListener('resize', checkVideoUI);
                 
                 // Monitor track additions and state changes for video UI
                 remoteStream.getVideoTracks().forEach(track => {
@@ -1020,8 +1022,6 @@
                         const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                         if (sender) {
                             sender.replaceTrack(videoTrack);
-                        } else {
-                            currentCall.peerConnection.addTrack(videoTrack, localStream);
                         }
                     }
                     
@@ -1043,10 +1043,10 @@
                 localVideoStream.getTracks().forEach(t => t.stop());
                 localVideoStream = null;
             }
-            if (currentCall && currentCall.peerConnection) {
+            if (currentCall && currentCall.peerConnection && dummyVideoTrack) {
                 const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) {
-                    sender.replaceTrack(null);
+                    sender.replaceTrack(dummyVideoTrack);
                 }
             }
             
@@ -1076,8 +1076,6 @@
                         const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                         if (sender) {
                             sender.replaceTrack(screenTrack);
-                        } else {
-                            currentCall.peerConnection.addTrack(screenTrack, localStream);
                         }
                     }
                     
@@ -1086,7 +1084,7 @@
                     checkVideoUI();
                 } catch(err) {
                     console.error(err);
-                    showToast("Screen sharing cancelled.");
+                    showToast("Screen sharing failed (may be restricted in this view).", "error");
                 }
             } else {
                 stopScreenShare();
@@ -1098,10 +1096,14 @@
                 localScreenStream.getTracks().forEach(t => t.stop());
                 localScreenStream = null;
             }
-            if (currentCall && currentCall.peerConnection) {
+            
+            // Re-apply mirror class in case camera is used next
+            els.localVideo.classList.add('scale-x-[-1]');
+            
+            if (currentCall && currentCall.peerConnection && dummyVideoTrack) {
                 const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) {
-                    sender.replaceTrack(null);
+                    sender.replaceTrack(dummyVideoTrack);
                 }
             }
             
@@ -1115,14 +1117,21 @@
         function checkVideoUI() {
             const remoteStream = els.remoteVideo.srcObject;
             let hasRemoteVideo = false;
-            if (remoteStream) {
-                hasRemoteVideo = remoteStream.getVideoTracks().some(t => !t.muted && t.readyState === 'live' && t.enabled);
+            
+            // Because we use a 2x2 dummy track, real video tracks will have a larger width
+            if (remoteStream && els.remoteVideo.videoWidth > 2) {
+                hasRemoteVideo = true;
             }
+            
             const hasLocalVideo = !!(localVideoStream || localScreenStream);
             
             if (!hasRemoteVideo && !hasLocalVideo) {
                 els.videoContainer.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => { if(!hasRemoteVideo && !hasLocalVideo) els.videoContainer.classList.add('hidden') }, 500);
+                setTimeout(() => { 
+                    if(els.videoContainer.classList.contains('opacity-0')) {
+                        els.videoContainer.classList.add('hidden');
+                    }
+                }, 500);
                 
                 els.audioCallUi.classList.remove('opacity-0', 'pointer-events-none');
             } else {
