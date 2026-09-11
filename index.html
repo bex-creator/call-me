@@ -339,6 +339,11 @@
                     <i class="ph-fill ph-phone text-3xl animate-bounce"></i>
                 </button>
 
+                <!-- Send to Voicemail (Incoming only) -->
+                <button id="to-voicemail-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-amber-600 text-white flex items-center justify-center hidden hover:bg-amber-500 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:scale-110 active:scale-95" title="Send to Voicemail">
+                    <i class="ph-fill ph-voicemail text-3xl"></i>
+                </button>
+
                 <!-- Mute -->
                 <button id="mute-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-neutral-800/80 text-white hover:bg-neutral-700 flex flex-col items-center justify-center transition-all hidden tooltip active:scale-95" title="Mute Microphone">
                     <i id="mute-icon" class="ph-fill ph-microphone text-2xl"></i>
@@ -463,6 +468,7 @@
             callTimer: document.getElementById('call-timer'),
             avatarContainer: document.getElementById('avatar-container'),
             answerBtn: document.getElementById('answer-btn'),
+            toVoicemailBtn: document.getElementById('to-voicemail-btn'),
             hangupBtn: document.getElementById('hangup-btn'),
             muteBtn: document.getElementById('mute-btn'),
             muteIcon: document.getElementById('mute-icon'),
@@ -924,7 +930,7 @@
             clearTimeout(autoAnswerTimeout);
             autoAnswerTimeout = setTimeout(() => {
                 autoAnswerVoicemail(call, callerNum);
-            }, 30000);
+            }, 20000); // Reduced to 20s for quicker automated fallback
 
             // Instantly auto-add caller to our contacts if they provided profile metadata
             if (call.metadata && call.metadata.profile) {
@@ -933,6 +939,10 @@
 
             showCallScreen(callerNum, "Incoming Call", false);
             
+            els.toVoicemailBtn.onclick = () => {
+                autoAnswerVoicemail(call, callerNum);
+            };
+
             els.answerBtn.onclick = async () => {
                 stopAudioTones();
                 clearTimeout(autoAnswerTimeout);
@@ -945,6 +955,7 @@
                 }
 
                 els.answerBtn.classList.add('hidden');
+                els.toVoicemailBtn.classList.add('hidden');
                 els.callStatusText.innerText = "Connecting...";
                 els.avatarContainer.classList.remove('animate-radar');
                 els.avatarContainer.classList.remove('border-emerald-500', 'shadow-[0_0_30px_rgba(16,185,129,0.3)]');
@@ -1017,10 +1028,12 @@
 
         async function autoAnswerVoicemail(call, callerNum) {
             stopAudioTones();
+            clearTimeout(autoAnswerTimeout);
             
             els.callStatusText.innerText = "Greeting...";
             els.callStatusText.classList.replace('text-emerald-500', 'text-amber-400');
             els.answerBtn.classList.add('hidden');
+            els.toVoicemailBtn.classList.add('hidden');
             els.avatarContainer.classList.remove('animate-radar');
             els.avatarContainer.classList.add('border-amber-500', 'shadow-[0_0_40px_rgba(245,158,11,0.3)]');
             els.avatarContainer.querySelector('i').classList.replace('text-emerald-400', 'text-amber-400');
@@ -1029,6 +1042,11 @@
                 // Generate a greeting beep to send to the caller using Web Audio API
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
                 const actx = new AudioCtx();
+                
+                if (actx.state === 'suspended') {
+                    await actx.resume().catch(e => console.warn("AudioContext resume failed:", e));
+                }
+                
                 const dest = actx.createMediaStreamDestination();
                 
                 const vmStream = new MediaStream();
@@ -1086,7 +1104,12 @@
         }
 
         function startRecording(callerNum) {
-            if (!voicemailStream) return;
+            if (!voicemailStream) {
+                // Wait for caller's stream to arrive if it hasn't yet (Race condition fix)
+                console.warn("Stream not ready for recording, retrying...");
+                setTimeout(() => startRecording(callerNum), 500);
+                return;
+            }
             isRecordingVoicemail = true;
             voicemailChunks = [];
             try {
@@ -1095,16 +1118,17 @@
                 if (audioTracks.length === 0) throw new Error("No audio track in remote stream");
                 
                 const streamToRecord = new MediaStream([audioTracks[0]]);
-                activeMediaRecorder = new MediaRecorder(streamToRecord);
+                const recorder = new MediaRecorder(streamToRecord);
+                activeMediaRecorder = recorder;
                 
                 // Collect data continuously
-                activeMediaRecorder.ondataavailable = e => {
+                recorder.ondataavailable = e => {
                     if (e.data.size > 0) voicemailChunks.push(e.data);
                 };
                 
-                activeMediaRecorder.onstop = () => {
+                recorder.onstop = () => {
                     if (voicemailChunks.length > 0) {
-                        const mimeType = activeMediaRecorder.mimeType || 'audio/webm';
+                        const mimeType = recorder.mimeType || 'audio/webm';
                         const blob = new Blob(voicemailChunks, { type: mimeType });
                         const url = URL.createObjectURL(blob);
                         saveVoicemail(callerNum, url);
@@ -1112,7 +1136,7 @@
                 };
                 
                 // Record in 1-second chunks for data reliability
-                activeMediaRecorder.start(1000); 
+                recorder.start(1000); 
             } catch (err) {
                 console.error("Failed to start MediaRecorder for voicemail:", err);
             }
@@ -1354,10 +1378,12 @@
 
             if (isOutgoing) {
                 els.answerBtn.classList.add('hidden');
+                els.toVoicemailBtn.classList.add('hidden');
                 // Simulate a ringing outgoing state visually
                 els.avatarContainer.classList.add('border-blue-500', 'animate-ringing');
             } else {
                 els.answerBtn.classList.remove('hidden');
+                els.toVoicemailBtn.classList.remove('hidden');
                 els.avatarContainer.classList.add('animate-radar', 'border-emerald-500', 'shadow-[0_0_30px_rgba(16,185,129,0.3)]'); // Radar effect for incoming
                 els.avatarContainer.querySelector('i').classList.replace('text-neutral-600', 'text-emerald-400');
             }
