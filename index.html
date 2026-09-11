@@ -1060,64 +1060,51 @@
         async function initiateCall() {
             const targetNum = els.dialInput.value.replace(/\s/g, '');
             
-async function runDiagnostics() {
-    showToast("Running audio diagnostics...");
-    
-    // Create an audio context to generate the tones
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const ctx = new AudioContext();
-    
-    // Helper function to play standard phone dual-tones (DTMF)
-    function playDualTone(freq1, freq2, duration, startTime) {
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        
-        osc1.type = 'sine';
-        osc1.frequency.value = freq1;
-        osc2.type = 'sine';
-        osc2.frequency.value = freq2;
-        
-        // Fade in/out slightly to prevent audio clicking
-        gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
-        gainNode.gain.setValueAtTime(0.1, startTime + duration - 0.05);
-        gainNode.gain.linearRampToValueAtTime(0, startTime + duration);
-        
-        osc1.connect(gainNode);
-        osc2.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        osc1.start(startTime);
-        osc2.start(startTime);
-        osc1.stop(startTime + duration);
-        osc2.stop(startTime + duration);
-    }
+            // Diagnostics trigger hook
+            if (targetNum === '999999') {
+                runDiagnostics();
+                return;
+            }
 
-    // Schedule the audio sequence
-    const now = ctx.currentTime;
-    
-    // 1. Dial Tone (North American Standard: 350Hz + 440Hz)
-    playDualTone(350, 440, 2.0, now);
-    
-    // 2. DTMF Tones (Simulating dialing '9' six times: 852Hz + 1477Hz)
-    for (let i = 0; i < 6; i++) {
-        playDualTone(852, 1477, 0.15, now + 2.2 + (i * 0.3));
-    }
-    
-    // 3. Ringback Tone (440Hz + 480Hz, 2 seconds on)
-    playDualTone(440, 480, 2.0, now + 4.5);
-    playDualTone(440, 480, 2.0, now + 8.5);
-    
-    // 4. Busy Signal (480Hz + 620Hz, 0.5s on/off)
-    for (let i = 0; i < 4; i++) {
-        playDualTone(480, 620, 0.5, now + 11.5 + (i * 1.0));
-    }
-    
-    setTimeout(() => {
-        showToast("Diagnostics complete.");
-    }, 15000);
-}
+            if (targetNum.length !== 6) {
+                showToast("Enter a 6-digit number to call.");
+                return;
+            }
+            if (targetNum === myNumber) {
+                showToast("Cannot call your own number.");
+                return;
+            }
+
+            try {
+                await ensureMediaAccess();
+                // Pre-warm the media element during a user gesture to bypass strict autoplay policies
+                els.remoteVideo.play().catch(e => console.log("Pre-play bypassed"));
+            } catch (e) {
+                return; // Mic access failed/denied
+            }
+
+            const targetPeerId = PEER_PREFIX + targetNum;
+            showCallScreen(targetNum, "Calling...", true);
+            
+            playRingbackTone();
+
+            // Pass our profile metadata so the receiver can auto-add us to their contacts
+            currentCall = peer.call(targetPeerId, localStream, { metadata: { profile: myProfile } });
+            
+            if(!currentCall) {
+                endCall();
+                showToast("Call failed initialization.");
+                return;
+            }
+
+            setupCallEvents(currentCall);
+        }
+
+        function handleIncomingCall(call) {
+            if (currentCall) {
+                call.close(); // Busy
+                return;
+            }
 
             // Play ringtone (might be blocked silently by browser if no user gesture has occurred yet, which is normal)
             if(!audioInitialized) {
