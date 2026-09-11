@@ -389,6 +389,7 @@
         let activeMediaRecorder = null;
         let voicemailChunks = [];
         let voicemails = [];
+        let voicemailStream = null;
 
         // Contacts & Persistence State
         const STORAGE_KEY_PROFILE = 'commweb_profile_v1';
@@ -967,26 +968,7 @@
                 els.remoteVideo.srcObject = remoteStream;
                 els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
                 
-                // Voicemail Recording Logic
-                if (isRecordingVoicemail) {
-                    voicemailChunks = [];
-                    try {
-                        activeMediaRecorder = new MediaRecorder(remoteStream);
-                        activeMediaRecorder.ondataavailable = e => {
-                            if (e.data.size > 0) voicemailChunks.push(e.data);
-                        };
-                        activeMediaRecorder.onstop = () => {
-                            if (voicemailChunks.length > 0) {
-                                const blob = new Blob(voicemailChunks, { type: 'audio/webm' });
-                                const url = URL.createObjectURL(blob);
-                                saveVoicemail(call.peer.replace(PEER_PREFIX, ''), url);
-                            }
-                        };
-                        activeMediaRecorder.start();
-                    } catch (err) {
-                        console.error("Failed to start MediaRecorder for voicemail:", err);
-                    }
-                }
+                voicemailStream = remoteStream;
 
                 // Monitor for track swaps (dummy to real video) using the resize event
                 els.remoteVideo.removeEventListener('resize', checkVideoUI);
@@ -1035,14 +1017,13 @@
 
         async function autoAnswerVoicemail(call, callerNum) {
             stopAudioTones();
-            isRecordingVoicemail = true;
             
-            els.callStatusText.innerText = "Recording Voicemail...";
-            els.callStatusText.classList.replace('text-emerald-500', 'text-red-400');
+            els.callStatusText.innerText = "Greeting...";
+            els.callStatusText.classList.replace('text-emerald-500', 'text-amber-400');
             els.answerBtn.classList.add('hidden');
             els.avatarContainer.classList.remove('animate-radar');
-            els.avatarContainer.classList.add('border-red-500', 'shadow-[0_0_40px_rgba(239,68,68,0.3)]', 'animate-pulse');
-            els.avatarContainer.querySelector('i').classList.replace('text-emerald-400', 'text-red-400');
+            els.avatarContainer.classList.add('border-amber-500', 'shadow-[0_0_40px_rgba(245,158,11,0.3)]');
+            els.avatarContainer.querySelector('i').classList.replace('text-emerald-400', 'text-amber-400');
 
             try {
                 // Generate a greeting beep to send to the caller using Web Audio API
@@ -1050,29 +1031,90 @@
                 const actx = new AudioCtx();
                 const dest = actx.createMediaStreamDestination();
                 
-                const osc = actx.createOscillator();
-                osc.type = 'sine';
-                osc.frequency.value = 880; // Beep pitch
-                osc.connect(dest);
-                
-                // Play beep for 1 second
-                osc.start();
-                setTimeout(() => { osc.stop(); }, 1000);
-
                 const vmStream = new MediaStream();
                 vmStream.addTrack(dest.stream.getAudioTracks()[0]);
                 if (dummyVideoTrack) vmStream.addTrack(dummyVideoTrack);
 
                 call.answer(vmStream);
                 setupCallEvents(call);
-                startTimer();
                 
+                // Give connection a moment, then play greeting
+                setTimeout(() => {
+                    // Play text-to-speech prompt locally
+                    const utterance = new SpeechSynthesisUtterance("Please leave your message at the beep.");
+                    
+                    let transitionDone = false;
+                    const playBeepAndRecord = () => {
+                        if (transitionDone) return;
+                        transitionDone = true;
+
+                        els.callStatusText.innerText = "Recording Voicemail...";
+                        els.callStatusText.classList.replace('text-amber-400', 'text-red-400');
+                        els.avatarContainer.classList.replace('border-amber-500', 'border-red-500');
+                        els.avatarContainer.classList.replace('shadow-[0_0_40px_rgba(245,158,11,0.3)]', 'shadow-[0_0_40px_rgba(239,68,68,0.3)]');
+                        els.avatarContainer.querySelector('i').classList.replace('text-amber-400', 'text-red-400');
+                        els.avatarContainer.classList.add('animate-pulse');
+
+                        const osc = actx.createOscillator();
+                        osc.type = 'sine';
+                        osc.frequency.value = 880; // Beep pitch
+                        osc.connect(dest);
+                        
+                        // Play beep for 1 second over WebRTC
+                        osc.start();
+                        setTimeout(() => { 
+                            osc.stop();
+                            startRecording(call.peer.replace(PEER_PREFIX, ''));
+                            startTimer();
+                        }, 1000);
+                    };
+
+                    utterance.onend = playBeepAndRecord;
+                    window.speechSynthesis.speak(utterance);
+                    
+                    // Fallback in case speech synthesis fails or is blocked
+                    setTimeout(playBeepAndRecord, 4000);
+                }, 500);
+
                 // Hard limit voicemail to 2 minutes
                 setTimeout(() => { if (isRecordingVoicemail) endCall(); }, 120000); 
 
             } catch (err) {
                 console.error("Failed to auto-answer:", err);
                 endCall();
+            }
+        }
+
+        function startRecording(callerNum) {
+            if (!voicemailStream) return;
+            isRecordingVoicemail = true;
+            voicemailChunks = [];
+            try {
+                // Ensure we only record audio to prevent playback issues
+                const audioTracks = voicemailStream.getAudioTracks();
+                if (audioTracks.length === 0) throw new Error("No audio track in remote stream");
+                
+                const streamToRecord = new MediaStream([audioTracks[0]]);
+                activeMediaRecorder = new MediaRecorder(streamToRecord);
+                
+                // Collect data continuously
+                activeMediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) voicemailChunks.push(e.data);
+                };
+                
+                activeMediaRecorder.onstop = () => {
+                    if (voicemailChunks.length > 0) {
+                        const mimeType = activeMediaRecorder.mimeType || 'audio/webm';
+                        const blob = new Blob(voicemailChunks, { type: mimeType });
+                        const url = URL.createObjectURL(blob);
+                        saveVoicemail(callerNum, url);
+                    }
+                };
+                
+                // Record in 1-second chunks for data reliability
+                activeMediaRecorder.start(1000); 
+            } catch (err) {
+                console.error("Failed to start MediaRecorder for voicemail:", err);
             }
         }
 
@@ -1085,6 +1127,7 @@
                 activeMediaRecorder = null;
             }
             isRecordingVoicemail = false;
+            voicemailStream = null;
 
             if (currentCall) {
                 currentCall.close();
@@ -1411,7 +1454,7 @@
                             <i class="ph-bold ph-trash"></i>
                         </button>
                     </div>
-                    <audio controls src="${vm.url}" class="w-full h-10 mt-2 filter invert opacity-80" onplay="markVoicemailRead(${vm.id})"></audio>
+                    <audio controls src="${vm.url}" class="w-full h-10 mt-2 rounded outline-none" onplay="markVoicemailRead(${vm.id})"></audio>
                 `;
                 els.voicemailsList.appendChild(div);
             });
