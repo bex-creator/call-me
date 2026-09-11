@@ -232,11 +232,16 @@
 
         <!-- Voicemails Modal (Inline overlay) -->
         <div id="voicemails-form" class="absolute inset-0 bg-black/95 backdrop-blur-md z-30 flex flex-col hidden transition-opacity duration-300 opacity-0 text-white">
-            <div class="p-6 border-b border-neutral-900 flex items-center">
-                <button id="cancel-voicemails" class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white flex items-center justify-center mr-4 transition-colors">
-                    <i class="ph-bold ph-arrow-left text-lg"></i>
+            <div class="p-6 border-b border-neutral-900 flex items-center justify-between">
+                <div class="flex items-center">
+                    <button id="cancel-voicemails" class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white flex items-center justify-center mr-4 transition-colors">
+                        <i class="ph-bold ph-arrow-left text-lg"></i>
+                    </button>
+                    <h3 class="font-bold text-white text-xl flex items-center gap-2"><i class="ph-fill ph-voicemail text-blue-500"></i> Voicemails</h3>
+                </div>
+                <button id="test-voicemail-btn" class="text-xs bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5">
+                    <i class="ph-bold ph-speaker-high"></i> Test Sound
                 </button>
-                <h3 class="font-bold text-white text-xl flex items-center gap-2"><i class="ph-fill ph-voicemail text-blue-500"></i> Voicemails</h3>
             </div>
             
             <div id="voicemails-list" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
@@ -262,41 +267,43 @@
         </div>
 
         <!-- The Dialer View -->
-        <div id="dialer-view" class="flex-1 flex flex-col items-center justify-center p-4 md:p-6 transition-all duration-500 transform">
-            <div class="w-full max-w-sm flex flex-col items-center bg-neutral-950 p-6 md:p-10 rounded-[2.5rem] border border-neutral-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-                
-                <h2 class="text-neutral-500 font-semibold text-sm uppercase tracking-widest mb-2">Make a Call</h2>
+        <div id="dialer-view" class="flex-1 overflow-y-auto custom-scroll p-4 md:p-6 transition-all duration-500 transform relative">
+            <div class="min-h-full flex items-center justify-center py-4">
+                <div class="w-full max-w-sm flex flex-col items-center bg-neutral-950 p-6 md:p-8 rounded-[2.5rem] border border-neutral-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                    
+                    <h2 class="text-neutral-500 font-semibold text-sm uppercase tracking-widest mb-1">Make a Call</h2>
 
-                <!-- Smart Contact Display -->
-                <div id="dialer-contact-label" class="h-6 mb-4 text-emerald-400 font-bold text-sm tracking-widest uppercase opacity-0 transition-opacity text-center w-full truncate px-4"></div>
+                    <!-- Smart Contact Display -->
+                    <div id="dialer-contact-label" class="h-6 mb-2 text-emerald-400 font-bold text-sm tracking-widest uppercase opacity-0 transition-opacity text-center w-full truncate px-4"></div>
 
-                <!-- Display -->
-                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-16 md:h-24 flex items-center justify-center mb-4 md:mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
-                    <input type="text" id="dial-input" readonly class="bg-transparent text-center text-3xl md:text-5xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
-                </div>
-                
-                <!-- Modern Numpad -->
-                <div class="grid grid-cols-3 gap-2 md:gap-5 mb-4 md:mb-8 w-full max-w-[280px] mx-auto">
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
-                    <div></div>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
-                    <button class="numpad-btn text-neutral-500 text-xl sm:text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
-                        <i class="ph-fill ph-backspace"></i>
+                    <!-- Display -->
+                    <div class="w-full bg-black border border-neutral-800 rounded-2xl h-16 md:h-20 flex items-center justify-center mb-4 md:mb-6 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
+                        <input type="text" id="dial-input" readonly class="bg-transparent text-center text-3xl md:text-4xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
+                    </div>
+                    
+                    <!-- Modern Numpad -->
+                    <div class="grid grid-cols-3 gap-2 md:gap-3 mb-4 md:mb-6 w-full max-w-[280px] mx-auto">
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
+                        <div></div>
+                        <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-xl sm:text-2xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
+                        <button class="numpad-btn text-neutral-500 text-xl sm:text-2xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
+                            <i class="ph-fill ph-backspace"></i>
+                        </button>
+                    </div>
+
+                    <!-- Call Action -->
+                    <button id="make-call-btn" class="w-full h-12 md:h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all text-lg font-bold group">
+                        <i class="ph-fill ph-phone group-hover:rotate-12 transition-transform"></i> Call
                     </button>
                 </div>
-
-                <!-- Call Action -->
-                <button id="make-call-btn" class="w-full h-12 md:h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all text-lg md:text-xl font-bold group">
-                    <i class="ph-fill ph-phone group-hover:rotate-12 transition-transform"></i> Call
-                </button>
             </div>
         </div>
 
@@ -1198,10 +1205,26 @@
                 if (audioTracks.length === 0) throw new Error("No audio track in remote stream");
                 
                 const streamToRecord = new MediaStream([audioTracks[0]]);
-                const recorder = new MediaRecorder(streamToRecord);
+                
+                // Select best supported MIME type across browsers (Safari, Chrome, Firefox)
+                let options = {};
+                const types = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/mp4',
+                    'audio/aac',
+                    'audio/ogg'
+                ];
+                for (let t of types) {
+                    if (MediaRecorder.isTypeSupported(t)) {
+                        options = { mimeType: t };
+                        break;
+                    }
+                }
+
+                const recorder = new MediaRecorder(streamToRecord, options);
                 activeMediaRecorder = recorder;
                 
-                // Collect data continuously
                 recorder.ondataavailable = e => {
                     if (e.data.size > 0) voicemailChunks.push(e.data);
                 };
@@ -1211,11 +1234,13 @@
                         const mimeType = recorder.mimeType || 'audio/webm';
                         const blob = new Blob(voicemailChunks, { type: mimeType });
                         
-                        // Convert blob to base64 for persistent storage in localStorage
+                        // Create object URL for immediate glitch-free session playback
+                        const objectUrl = URL.createObjectURL(blob);
+                        
                         const reader = new FileReader();
                         reader.readAsDataURL(blob);
                         reader.onloadend = () => {
-                            saveVoicemail(callerNum, reader.result);
+                            saveVoicemail(callerNum, reader.result, objectUrl, mimeType);
                         };
                     }
                 };
@@ -1500,19 +1525,25 @@
         // --- STREAMING_CHUNK: Voicemail UI Handlers ---
         function saveVoicemailsToStorage() {
             try {
-                // We keep voicemails in local storage to persist across reloads
-                localStorage.setItem(STORAGE_KEY_VOICEMAILS, JSON.stringify(voicemails));
+                // Strip session object URLs before saving to localStorage
+                const serializable = voicemails.map(v => {
+                    const { objectUrl, audioRef, ...rest } = v;
+                    return rest;
+                });
+                localStorage.setItem(STORAGE_KEY_VOICEMAILS, JSON.stringify(serializable));
             } catch(e) {
                 console.error("Storage full or error saving voicemail", e);
                 showToast("Storage quota exceeded. Cannot save more voicemails.", "error");
             }
         }
 
-        function saveVoicemail(number, audioUrl) {
+        function saveVoicemail(number, audioUrl, objectUrl = null, mimeType = '') {
             voicemails.push({
                 id: Date.now(),
                 number: number,
                 url: audioUrl,
+                objectUrl: objectUrl,
+                mimeType: mimeType,
                 date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' - ' + new Date().toLocaleDateString(),
                 read: false
             });
@@ -1539,6 +1570,10 @@
             renderVoicemails();
         }
 
+        // Active voicemail audio instances tracking
+        let activeVoicemailAudio = null;
+        let activeVoicemailId = null;
+
         function renderVoicemails() {
             els.voicemailsList.innerHTML = '';
             if (voicemails.length === 0) {
@@ -1547,7 +1582,7 @@
                     <div class="w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center text-neutral-400">
                         <i class="ph-fill ph-voicemail text-2xl"></i>
                     </div>
-                    <div>No voicemails yet.</div>
+                    <div>No voicemails yet.<br><span class="text-xs text-neutral-600">Click 'Test Sound' above to create a test message.</span></div>
                 </div>`;
                 return;
             }
@@ -1555,7 +1590,8 @@
             voicemails.sort((a, b) => b.id - a.id).forEach(vm => {
                 const div = document.createElement('div');
                 const contactName = getContactName(vm.number);
-                
+                const isPlaying = activeVoicemailId === vm.id;
+
                 div.className = `bg-neutral-950 p-4 rounded-2xl border ${vm.read ? 'border-neutral-900' : 'border-blue-900/50 shadow-[0_0_15px_rgba(59,130,246,0.1)]'} flex flex-col gap-3 transition-all`;
                 
                 div.innerHTML = `
@@ -1567,7 +1603,7 @@
                             <div>
                                 <h4 class="font-bold text-white text-base flex items-center gap-2">
                                     ${contactName}
-                                    ${!vm.read ? '<span class="w-2 h-2 rounded-full bg-blue-500"></span>' : ''}
+                                    ${!vm.read ? '<span class="w-2 h-2 rounded-full bg-blue-500" id="badge-vm-' + vm.id + '"></span>' : ''}
                                 </h4>
                                 <p class="text-neutral-500 text-xs">${vm.date}</p>
                             </div>
@@ -1576,10 +1612,172 @@
                             <i class="ph-bold ph-trash"></i>
                         </button>
                     </div>
-                    <audio controls src="${vm.url}" class="w-full h-10 mt-2 rounded outline-none" onplay="markVoicemailRead(${vm.id})"></audio>
+
+                    <!-- Custom Reliable Audio Player UI -->
+                    <div class="bg-neutral-900/90 border border-neutral-800 rounded-xl p-3 flex flex-col gap-2">
+                        <div class="flex items-center gap-3">
+                            <button id="btn-vm-${vm.id}" onclick="toggleVoicemailPlayback(${vm.id})" class="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-95">
+                                <i class="ph-fill ${isPlaying ? 'ph-pause' : 'ph-play'} text-xl"></i>
+                            </button>
+                            
+                            <div class="flex-1 flex flex-col gap-1">
+                                <input id="seeker-vm-${vm.id}" type="range" min="0" max="100" value="0" oninput="seekVoicemail(${vm.id}, this.value)" class="w-full accent-blue-500 h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-[11px] font-mono text-neutral-400">
+                                    <span id="time-vm-${vm.id}">0:00</span>
+                                    <span id="dur-vm-${vm.id}">--:--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 `;
                 els.voicemailsList.appendChild(div);
             });
+
+            // Re-bind test button listener after DOM render
+            const testBtn = document.getElementById('test-voicemail-btn');
+            if (testBtn) {
+                testBtn.onclick = createTestVoicemail;
+            }
+        }
+
+        window.toggleVoicemailPlayback = function(id) {
+            const vm = voicemails.find(v => v.id === id);
+            if (!vm) return;
+
+            // Stop currently playing audio if switching
+            if (activeVoicemailAudio && activeVoicemailId !== id) {
+                activeVoicemailAudio.pause();
+                updatePlayerIcon(activeVoicemailId, false);
+            }
+
+            if (activeVoicemailId === id && activeVoicemailAudio && !activeVoicemailAudio.paused) {
+                activeVoicemailAudio.pause();
+                updatePlayerIcon(id, false);
+            } else {
+                if (!activeVoicemailAudio || activeVoicemailId !== id) {
+                    const audioSrc = vm.objectUrl || vm.url;
+                    activeVoicemailAudio = new Audio(audioSrc);
+                    activeVoicemailId = id;
+
+                    activeVoicemailAudio.volume = 1.0;
+
+                    activeVoicemailAudio.addEventListener('loadedmetadata', () => {
+                        const durEl = document.getElementById(`dur-vm-${id}`);
+                        if (durEl && !isNaN(activeVoicemailAudio.duration)) {
+                            durEl.innerText = formatAudioTime(activeVoicemailAudio.duration);
+                        }
+                    });
+
+                    activeVoicemailAudio.addEventListener('timeupdate', () => {
+                        if (activeVoicemailId === id && activeVoicemailAudio) {
+                            const cur = activeVoicemailAudio.currentTime;
+                            const dur = activeVoicemailAudio.duration || 1;
+                            const seeker = document.getElementById(`seeker-vm-${id}`);
+                            const timeEl = document.getElementById(`time-vm-${id}`);
+                            
+                            if (seeker) seeker.value = (cur / dur) * 100;
+                            if (timeEl) timeEl.innerText = formatAudioTime(cur);
+                        }
+                    });
+
+                    activeVoicemailAudio.addEventListener('ended', () => {
+                        updatePlayerIcon(id, false);
+                        const seeker = document.getElementById(`seeker-vm-${id}`);
+                        if (seeker) seeker.value = 0;
+                    });
+
+                    activeVoicemailAudio.addEventListener('error', (e) => {
+                        console.error("Voicemail playback error:", e);
+                        showToast("Unable to play voicemail format on this browser.", "error");
+                        updatePlayerIcon(id, false);
+                    });
+                }
+
+                markVoicemailRead(id);
+
+                activeVoicemailAudio.play().then(() => {
+                    updatePlayerIcon(id, true);
+                }).catch(err => {
+                    console.error("Playback start error:", err);
+                    showToast("Playback blocked. Click Play button again.", "error");
+                    updatePlayerIcon(id, false);
+                });
+            }
+        };
+
+        function updatePlayerIcon(id, isPlaying) {
+            const btn = document.getElementById(`btn-vm-${id}`);
+            if (btn) {
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.className = `ph-fill ${isPlaying ? 'ph-pause' : 'ph-play'} text-xl`;
+                }
+            }
+        }
+
+        window.seekVoicemail = function(id, percent) {
+            if (activeVoicemailAudio && activeVoicemailId === id && activeVoicemailAudio.duration) {
+                activeVoicemailAudio.currentTime = (percent / 100) * activeVoicemailAudio.duration;
+            }
+        };
+
+        function formatAudioTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function createTestVoicemail() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                const dest = ctx.createMediaStreamDestination();
+                
+                let options = {};
+                if (MediaRecorder.isTypeSupported('audio/webm')) options = { mimeType: 'audio/webm' };
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+
+                const recorder = new MediaRecorder(dest.stream, options);
+
+                const chunks = [];
+                recorder.ondataavailable = e => chunks.push(e.data);
+                recorder.onstop = () => {
+                    const mimeType = recorder.mimeType || 'audio/webm';
+                    const blob = new Blob(chunks, { type: mimeType });
+                    const objectUrl = URL.createObjectURL(blob);
+                    const reader = new FileReader();
+                    reader.readAsDataURL(blob);
+                    reader.onloadend = () => {
+                        saveVoicemail('999999', reader.result, objectUrl, mimeType);
+                        showToast("Test voicemail created! Click Play to listen.", "success");
+                    };
+                };
+
+                recorder.start();
+
+                // Play pleasant multi-frequency melody to verify audio output
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.25);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + idx * 0.25 + 0.5);
+                    osc.connect(gain);
+                    gain.connect(dest);
+                    osc.start(ctx.currentTime + idx * 0.25);
+                    osc.stop(ctx.currentTime + idx * 0.25 + 0.5);
+                });
+
+                setTimeout(() => {
+                    recorder.stop();
+                    setTimeout(() => ctx.close(), 300);
+                }, 1400);
+
+            } catch (err) {
+                console.error("Test voicemail generation error:", err);
+                showToast("Could not generate test audio.", "error");
+            }
         }
 
         window.markVoicemailRead = function(id) {
@@ -1587,11 +1785,18 @@
             if (vm && !vm.read) {
                 vm.read = true;
                 saveVoicemailsToStorage();
+                const badge = document.getElementById(`badge-vm-${id}`);
+                if (badge) badge.remove();
                 updateVoicemailUI();
             }
         };
 
         window.deleteVoicemail = function(id) {
+            if (activeVoicemailId === id && activeVoicemailAudio) {
+                activeVoicemailAudio.pause();
+                activeVoicemailAudio = null;
+                activeVoicemailId = null;
+            }
             voicemails = voicemails.filter(v => v.id !== id);
             saveVoicemailsToStorage();
             updateVoicemailUI();
