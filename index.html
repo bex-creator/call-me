@@ -2,364 +2,1266 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Voice Chat Room</title>
-    <!-- Tailwind for styling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WebRTC Communication App</title>
+    
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- PeerJS for WebRTC signaling without custom backend/Firebase -->
+    <!-- PeerJS for WebRTC signaling -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Tone.js for audio feedback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
         body {
-            background-color: #0f172a; /* Slate 900 */
-            color: #f8fafc; /* Slate 50 */
             font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            touch-action: manipulation;
+        }
+
+        /* Numpad button active state */
+        .numpad-btn {
+            transition: all 0.15s ease;
+        }
+        .numpad-btn:hover {
+            box-shadow: 0 0 15px rgba(255,255,255,0.05) inset;
+        }
+        .numpad-btn:active {
+            background-color: #262626 !important;
+            transform: scale(0.95);
+        }
+
+        /* Radar pulse animation for active calls */
+        @keyframes radar {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
         }
         
-        /* Simple pulse animation for active speakers (simulated visually) */
+        .animate-radar::before, .animate-radar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background-color: rgba(16, 185, 129, 0.4); /* Emerald 500 */
+            z-index: -1;
+        }
+        
+        .animate-radar::before {
+            animation: radar 2s linear infinite;
+        }
+        
+        .animate-radar::after {
+            animation: radar 2s linear 1s infinite;
+        }
+
+        /* Ringing Animation for outgoing */
         @keyframes pulse-ring {
-            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(96, 165, 250, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(96, 165, 250, 0); }
         }
-        
-        .mic-active {
+        .animate-ringing {
             animation: pulse-ring 2s infinite;
+        }
+
+        /* Toast Animations */
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-enter { animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        /* Audio Visualizer Pulse */
+        .audio-pulse {
+            transition: transform 0.05s ease-out, box-shadow 0.1s ease-out, border-color 0.1s ease-out;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #404040;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #525252;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="h-screen w-full flex overflow-hidden bg-black text-white">
 
-    <div class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
-        
-        <!-- Header -->
-        <div class="bg-slate-900 p-6 text-center border-b border-slate-700">
-            <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                Open Voice Room
-            </h1>
-            <p class="text-slate-400 text-sm mt-2">Peer-to-Peer Audio Chat</p>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="p-6">
+    <div id="setup-screen" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-neutral-950 border border-neutral-900 max-w-md w-full rounded-3xl shadow-2xl p-10 text-center flex flex-col items-center transform transition-all">
+            <div class="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(37,99,235,0.2)]">
+                <i class="ph-fill ph-phone-call text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-3 tracking-tight">CommWeb</h1>
+            <p class="text-neutral-400 text-sm mb-8 leading-relaxed px-4">Connect securely using peer-to-peer technology. No servers, just direct connections.</p>
             
-            <!-- Room Status / Join Section -->
-            <div id="setup-section" class="space-y-4">
-                <div class="text-center p-4 bg-slate-700/50 rounded-xl border border-slate-600">
-                    <p id="setup-text" class="text-sm text-slate-300 mb-2">Create a new voice room or join via link. Requires microphone access.</p>
+            <div class="w-full mb-8 text-left">
+                <label class="block text-sm text-neutral-400 font-semibold mb-2 ml-1">How should others see you?</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-neutral-500">
+                        <i class="ph-fill ph-user text-lg"></i>
+                    </div>
+                    <input type="text" id="setup-name-input" class="w-full bg-neutral-900 text-white pl-11 pr-4 py-3.5 rounded-xl border border-neutral-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all text-lg font-medium" placeholder="Your Display Name">
                 </div>
-                <button id="join-btn" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-500/20 active:scale-95 flex items-center justify-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                    <span id="join-btn-text">Start / Join Room</span>
-                </button>
-                <div id="error-msg" class="text-red-400 text-sm text-center hidden"></div>
             </div>
 
-            <!-- Active Room Section (Hidden initially) -->
-            <div id="room-section" class="hidden space-y-6">
-                
-                <!-- Share Link Area (NEW) -->
-                <div id="share-container" class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 flex flex-col gap-2 shadow-inner">
-                    <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Invite Others to this Room</span>
-                    <div class="flex gap-2">
-                        <input type="text" id="share-link" readonly class="bg-slate-800 text-sm text-slate-200 px-3 py-2 rounded-lg border border-slate-600 w-full focus:outline-none focus:border-blue-500 select-all transition-colors">
-                        <button id="copy-btn" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg text-white">Copy</button>
-                    </div>
-                </div>
-
-                <!-- Status Bar -->
-                <div class="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg border border-slate-700">
-                    <div class="flex items-center gap-2 text-sm text-emerald-400">
-                        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        Connected
-                    </div>
-                    <div class="text-sm text-slate-400">
-                        Peers: <span id="peer-count" class="font-bold text-white">0</span>
-                    </div>
-                </div>
-
-                <!-- My Controls -->
-                <div class="flex flex-col items-center py-4">
-                    <button id="mute-btn" class="w-20 h-20 bg-emerald-600 hover:bg-emerald-500 rounded-full flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/20 mic-active text-white">
-                        <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                        
-                        <svg id="mic-off-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                    </button>
-                    <span id="mute-text" class="mt-3 text-slate-300 font-medium">Microphone On</span>
-                </div>
-
-                <!-- Hidden audio elements container for incoming streams -->
-                <div id="audio-container" class="hidden"></div>
-                
-                <div class="text-xs text-center text-slate-500">
-                    Your ID: <span id="my-id-display" class="font-mono bg-slate-900 px-1 rounded select-all"></span>
-                </div>
-
+            <button id="start-app-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98] flex items-center justify-center gap-2 text-lg group">
+                Initialize Connection <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>
+            </button>
+            <div id="setup-error" class="text-red-400 bg-red-950/30 p-4 rounded-xl text-sm mt-4 hidden w-full border border-red-900/30 flex items-start gap-2 text-left">
+                <i class="ph-fill ph-warning-circle text-lg mt-0.5"></i>
+                <span id="setup-error-text"></span>
             </div>
         </div>
     </div>
 
-    <script>
-        // Check URL hash to determine if we are creating a room or joining one
-        const isHost = !window.location.hash;
-        let hostId = isHost ? null : window.location.hash.substring(1);
-        let myId = null;
-
-        let peer;
-        let localStream;
-        let connections = {}; // Active media calls
+    <aside id="sidebar" class="w-full md:w-[380px] flex-shrink-0 bg-black border-r border-neutral-900 flex flex-col h-full hidden md:flex transition-all z-20 relative">
         
-        // Host state
-        let knownPeers = []; 
-        let guestConnections = []; 
+        <!-- App Header & Profile -->
+        <div class="p-6 border-b border-neutral-900 bg-black z-10 relative">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]">
+                    <i class="ph-fill ph-phone text-xl"></i>
+                </div>
+                <span class="font-extrabold text-white text-xl tracking-tight">CommWeb</span>
+                
+                <!-- Mobile Close Sidebar Btn -->
+                <button id="close-sidebar-btn" class="md:hidden ml-auto text-neutral-500 hover:text-white p-2 rounded-lg hover:bg-neutral-900 transition-colors">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
 
-        // UI Elements
-        const setupSection = document.getElementById('setup-section');
-        const setupText = document.getElementById('setup-text');
-        const roomSection = document.getElementById('room-section');
-        const joinBtn = document.getElementById('join-btn');
-        const joinBtnText = document.getElementById('join-btn-text');
-        const errorMsg = document.getElementById('error-msg');
-        const peerCountEl = document.getElementById('peer-count');
-        const audioContainer = document.getElementById('audio-container');
-        const muteBtn = document.getElementById('mute-btn');
-        const micIcon = document.getElementById('mic-icon');
-        const micOffIcon = document.getElementById('mic-off-icon');
-        const muteText = document.getElementById('mute-text');
-        const myIdDisplay = document.getElementById('my-id-display');
-        const shareLinkInput = document.getElementById('share-link');
-        const copyBtn = document.getElementById('copy-btn');
+            <!-- Profile Card -->
+            <div class="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 relative overflow-hidden group text-white">
+                
+                <div class="flex justify-between items-start mb-2 relative z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 bg-neutral-800 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-user text-2xl text-neutral-400"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-0.5">My Profile</p>
+                            <h3 id="my-name-display" class="font-bold text-white text-lg truncate max-w-[150px]">Guest User</h3>
+                        </div>
+                    </div>
+                    <button id="edit-profile-btn" class="text-neutral-500 hover:text-white hover:bg-neutral-800 p-2 rounded-lg transition-all" title="Edit Profile">
+                        <i class="ph ph-pencil-simple text-base"></i>
+                    </button>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-neutral-800 flex items-center justify-between relative z-10">
+                    <div>
+                        <p class="text-[10px] text-neutral-500 uppercase tracking-widest mb-1">Your Number</p>
+                        <h2 id="my-number-display" class="text-2xl font-bold text-white tracking-[0.2em] font-mono">--- ---</h2>
+                    </div>
+                    <button id="copy-number-btn" class="p-2.5 text-neutral-400 hover:text-white bg-neutral-800 hover:bg-neutral-700 rounded-xl transition-all" title="Copy Number">
+                        <i class="ph-bold ph-copy text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
 
+        <!-- Contacts Section -->
+        <div class="flex-1 flex flex-col overflow-hidden bg-black">
+            <div class="px-6 py-5 flex justify-between items-center border-b border-neutral-900 bg-black sticky top-0 z-10">
+                <h3 class="font-bold text-white text-lg flex items-center gap-2">
+                    <i class="ph-fill ph-address-book text-blue-500"></i> Directory
+                </h3>
+                <button id="show-add-contact-btn" class="text-sm bg-neutral-950 border border-neutral-800 hover:border-blue-500 hover:text-blue-400 text-neutral-400 px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1">
+                    <i class="ph-bold ph-plus"></i> New
+                </button>
+            </div>
+
+            <div id="contacts-list" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3">
+                <!-- Contacts rendered here -->
+            </div>
+        </div>
+
+        <!-- Add Contact Modal (Inline overlay) -->
+        <div id="add-contact-form" class="absolute inset-0 bg-black/95 backdrop-blur-md z-30 flex flex-col hidden transition-opacity duration-300 opacity-0">
+            <div class="p-6 border-b border-neutral-900 flex items-center">
+                <button id="cancel-add-contact" class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white flex items-center justify-center mr-4 transition-colors">
+                    <i class="ph-bold ph-arrow-left text-lg"></i>
+                </button>
+                <h3 class="font-bold text-white text-xl">New Contact</h3>
+            </div>
+            
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-sm text-neutral-400 font-semibold mb-2">Contact Name</label>
+                    <input type="text" id="contact-name-input" class="w-full bg-neutral-900 text-white px-4 py-3 rounded-xl border border-neutral-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all" placeholder="e.g. Alice">
+                </div>
+                <div>
+                    <label class="block text-sm text-neutral-400 font-semibold mb-2">6-Digit Number</label>
+                    <input type="text" id="contact-number-input" maxlength="6" class="w-full bg-neutral-900 text-white px-4 py-3 rounded-xl border border-neutral-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all font-mono tracking-widest text-lg" placeholder="123456">
+                </div>
+                <button id="save-contact-btn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold mt-4 transition-all flex justify-center items-center gap-2">
+                    <i class="ph-bold ph-check"></i> Save Contact
+                </button>
+            </div>
+        </div>
+
+        <!-- Edit Profile Modal (Inline overlay) -->
+        <div id="edit-profile-form" class="absolute inset-0 bg-black/95 backdrop-blur-md z-30 flex flex-col hidden transition-opacity duration-300 opacity-0 text-white">
+            <div class="p-6 border-b border-neutral-900 flex items-center">
+                <button id="cancel-edit-profile" class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 hover:bg-neutral-800 hover:text-white flex items-center justify-center mr-4 transition-colors">
+                    <i class="ph-bold ph-arrow-left text-lg"></i>
+                </button>
+                <h3 class="font-bold text-white text-xl">Edit Profile</h3>
+            </div>
+            
+            <div class="p-6 space-y-5">
+                <div class="flex justify-center mb-6">
+                    <div class="w-24 h-24 bg-neutral-900 rounded-full flex items-center justify-center border border-neutral-800">
+                        <i class="ph-fill ph-user text-4xl text-neutral-500"></i>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-neutral-400 font-semibold mb-2">Display Name</label>
+                    <input type="text" id="edit-name-input" class="w-full bg-neutral-900 text-white px-4 py-3.5 rounded-xl border border-neutral-800 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none transition-all text-lg" placeholder="Your Name">
+                </div>
+                <button id="save-profile-btn" class="w-full py-4 bg-white text-black hover:bg-neutral-200 rounded-xl font-bold mt-4 transition-all flex justify-center items-center gap-2 text-lg">
+                    Update Profile
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 bg-black relative flex flex-col h-full w-full">
+        
+        <!-- Mobile Top Bar -->
+        <div class="md:hidden flex items-center justify-between p-4 border-b border-neutral-900 bg-black sticky top-0 z-10">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white">
+                    <i class="ph-fill ph-phone"></i>
+                </div>
+                <span class="font-extrabold text-white">CommWeb</span>
+            </div>
+            <button id="mobile-menu-btn" class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-900 rounded-xl transition-colors">
+                <i class="ph-bold ph-list text-2xl"></i>
+            </button>
+        </div>
+
+        <!-- The Dialer View -->
+        <div id="dialer-view" class="flex-1 flex flex-col items-center justify-center p-6 transition-all duration-500 transform">
+            <div class="w-full max-w-sm flex flex-col items-center bg-neutral-950 p-8 md:p-10 rounded-[2.5rem] border border-neutral-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+                
+                <h2 class="text-neutral-500 font-semibold text-sm uppercase tracking-widest mb-2">Make a Call</h2>
+
+                <!-- Smart Contact Display -->
+                <div id="dialer-contact-label" class="h-6 mb-4 text-emerald-400 font-bold text-sm tracking-widest uppercase opacity-0 transition-opacity text-center w-full truncate px-4"></div>
+
+                <!-- Display -->
+                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-24 flex items-center justify-center mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
+                    <input type="text" id="dial-input" readonly class="bg-transparent text-center text-4xl md:text-5xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
+                </div>
+                
+                <!-- Modern Numpad -->
+                <div class="grid grid-cols-3 gap-4 md:gap-5 mb-8 w-full">
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
+                    <div></div>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
+                    <button class="numpad-btn text-neutral-500 text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
+                        <i class="ph-fill ph-backspace"></i>
+                    </button>
+                </div>
+
+                <!-- Call Action -->
+                <button id="make-call-btn" class="w-full h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(16,185,129,0.2)] active:scale-95 transition-all text-xl font-bold group">
+                    <i class="ph-fill ph-phone group-hover:rotate-12 transition-transform"></i> Call
+                </button>
+            </div>
+        </div>
+
+        <div id="call-view" class="absolute inset-0 bg-black z-10 flex flex-col hidden opacity-0 transition-all duration-500 transform scale-95 overflow-hidden">
+            
+            <!-- Floating Timer -->
+            <div class="absolute top-6 left-1/2 transform -translate-x-1/2 z-30">
+                <div id="call-timer-container" class="bg-neutral-900/80 backdrop-blur-md border border-neutral-800/50 text-neutral-300 px-5 py-2 rounded-full font-mono text-base flex items-center gap-3 hidden shadow-[0_10px_20px_rgba(0,0,0,0.3)] transition-all">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    <span id="call-timer">00:00</span>
+                </div>
+            </div>
+
+            <!-- Video Container -->
+            <div id="video-container" class="absolute inset-0 z-0 hidden opacity-0 pointer-events-none bg-neutral-950 transition-opacity duration-500">
+                <video id="remote-video" class="w-full h-full object-cover" autoplay playsinline></video>
+                <!-- Local Video PiP -->
+                <div class="absolute top-20 right-4 md:top-6 md:right-6 w-28 md:w-48 aspect-[3/4] bg-neutral-900 rounded-2xl border-2 border-neutral-800 shadow-2xl overflow-hidden z-10 transition-all">
+                    <video id="local-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline muted></video>
+                </div>
+            </div>
+
+            <!-- Audio-only UI (Avatar, Name) -->
+            <div id="audio-call-ui" class="flex-1 flex flex-col items-center justify-center relative z-10 px-6 transition-opacity duration-300">
+                <!-- Avatar & Animation -->
+                <div class="relative mb-12">
+                    <div id="avatar-container" class="w-36 h-36 rounded-full bg-neutral-900 border-4 border-neutral-800 flex items-center justify-center relative z-10 transition-all duration-500">
+                        <i class="ph-fill ph-user text-6xl text-neutral-600"></i>
+                    </div>
+                </div>
+
+                <!-- Status & Name -->
+                <div class="text-center mb-16">
+                    <p id="call-status-text" class="text-emerald-500 font-bold text-sm uppercase tracking-[0.2em] mb-4">Connecting...</p>
+                    <h2 id="call-remote-number" class="text-5xl md:text-6xl font-extrabold text-white mb-6 tracking-tight drop-shadow-lg">123 456</h2>
+                </div>
+            </div>
+
+            <!-- Call Controls (Action Bar) -->
+            <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-neutral-900/90 backdrop-blur-xl border border-neutral-800/50 p-4 md:p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 md:gap-5 z-20 w-max">
+                
+                <!-- Answer (Incoming only) -->
+                <button id="answer-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center hidden hover:bg-emerald-500 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:scale-110 active:scale-95" title="Answer Call">
+                    <i class="ph-fill ph-phone text-3xl animate-bounce"></i>
+                </button>
+
+                <!-- Mute -->
+                <button id="mute-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-neutral-800/80 text-white hover:bg-neutral-700 flex flex-col items-center justify-center transition-all hidden tooltip active:scale-95" title="Mute Microphone">
+                    <i id="mute-icon" class="ph-fill ph-microphone text-2xl"></i>
+                </button>
+                
+                <!-- Camera Toggle -->
+                <button id="camera-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-neutral-800/80 text-white hover:bg-neutral-700 flex flex-col items-center justify-center transition-all hidden tooltip active:scale-95" title="Toggle Camera">
+                    <i id="camera-icon" class="ph-fill ph-video-camera-slash text-2xl"></i>
+                </button>
+
+                <!-- Screen Share Toggle -->
+                <button id="screen-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-neutral-800/80 text-white hover:bg-neutral-700 flex flex-col items-center justify-center transition-all hidden tooltip active:scale-95 hidden md:flex" title="Share Screen">
+                    <i id="screen-icon" class="ph-bold ph-screencast text-2xl"></i>
+                </button>
+
+                <!-- Hangup -->
+                <button id="hangup-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] hover:bg-red-500 transition-all tooltip hover:scale-110 active:scale-95" title="End Call">
+                    <i class="ph-fill ph-phone-disconnect text-3xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Toast Notification Container -->
+        <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+
+    </main>
+
+    <script>
+        // --- CONSTANTS & STATE ---
+        const PEER_PREFIX = 'webphone-v2-'; 
+        let myNumber = "";
+        let myProfile = { name: "Guest User", number: "" };
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
         let isMuted = false;
+        
+        let callTimerInterval = null;
+        let callSeconds = 0;
+        
+        let audioContext = null;
+        let visualizerAnimationFrame = null;
 
-        // Initialize UI Text based on role
-        if (!isHost) {
-            setupText.innerText = "You've been invited to join a room! Ensure your microphone is allowed.";
-            joinBtnText.innerText = "Join Voice Room";
+        // Contacts & Persistence State
+        const STORAGE_KEY_PROFILE = 'commweb_profile_v1';
+        const STORAGE_KEY_CONTACTS = 'commweb_contacts_v1';
+        let contacts = [];
+
+        // Load Persistent Data from LocalStorage
+        const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+        if (savedProfile) {
+            myProfile = JSON.parse(savedProfile);
+            myNumber = myProfile.number;
         } else {
-            setupText.innerText = "Create a new peer-to-peer voice room. You will get a link to share.";
-            joinBtnText.innerText = "Start New Room";
+            // Reserve a number permanently for this user/device
+            myNumber = Math.floor(100000 + Math.random() * 900000).toString();
+            myProfile.number = myNumber;
+            localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(myProfile));
         }
 
-        joinBtn.addEventListener('click', initializeCall);
-        muteBtn.addEventListener('click', toggleMute);
-        
-        // Copy Link Button Logic
-        copyBtn.addEventListener('click', () => {
-            shareLinkInput.select();
-            document.execCommand('copy');
-            copyBtn.innerText = 'Copied!';
-            copyBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
-            copyBtn.classList.replace('hover:bg-blue-500', 'hover:bg-emerald-500');
-            setTimeout(() => {
-                copyBtn.innerText = 'Copy';
-                copyBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
-                copyBtn.classList.replace('hover:bg-emerald-500', 'hover:bg-blue-500');
-            }, 2000);
+        const savedContacts = localStorage.getItem(STORAGE_KEY_CONTACTS);
+        if (savedContacts) {
+            contacts = JSON.parse(savedContacts);
+        }
+
+        // Audio Generation
+        let dialToneSynth, ringToneSynth;
+        let audioInitialized = false;
+
+        // --- DOM ELEMENT CACHE ---
+        const els = {
+            setupScreen: document.getElementById('setup-screen'),
+            setupNameInput: document.getElementById('setup-name-input'),
+            startBtn: document.getElementById('start-app-btn'),
+            setupError: document.getElementById('setup-error'),
+            
+            sidebar: document.getElementById('sidebar'),
+            mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+            closeSidebarBtn: document.getElementById('close-sidebar-btn'),
+            
+            myNumDisplay: document.getElementById('my-number-display'),
+            myNameDisplay: document.getElementById('my-name-display'),
+            copyNumBtn: document.getElementById('copy-number-btn'),
+            
+            editProfileBtn: document.getElementById('edit-profile-btn'),
+            editProfileForm: document.getElementById('edit-profile-form'),
+            cancelEditProfile: document.getElementById('cancel-edit-profile'),
+            saveProfileBtn: document.getElementById('save-profile-btn'),
+            editNameInput: document.getElementById('edit-name-input'),
+
+            dialInput: document.getElementById('dial-input'),
+            makeCallBtn: document.getElementById('make-call-btn'),
+            dialerView: document.getElementById('dialer-view'),
+            callView: document.getElementById('call-view'),
+            
+            contactsList: document.getElementById('contacts-list'),
+            showAddContactBtn: document.getElementById('show-add-contact-btn'),
+            addContactForm: document.getElementById('add-contact-form'),
+            cancelAddContact: document.getElementById('cancel-add-contact'),
+            saveContactBtn: document.getElementById('save-contact-btn'),
+            contactNameInput: document.getElementById('contact-name-input'),
+            contactNumberInput: document.getElementById('contact-number-input'),
+            
+            callStatusText: document.getElementById('call-status-text'),
+            callRemoteNumber: document.getElementById('call-remote-number'),
+            callTimerContainer: document.getElementById('call-timer-container'),
+            callTimer: document.getElementById('call-timer'),
+            avatarContainer: document.getElementById('avatar-container'),
+            answerBtn: document.getElementById('answer-btn'),
+            hangupBtn: document.getElementById('hangup-btn'),
+            muteBtn: document.getElementById('mute-btn'),
+            muteIcon: document.getElementById('mute-icon'),
+            
+            // New Video Elements
+            videoContainer: document.getElementById('video-container'),
+            remoteVideo: document.getElementById('remote-video'),
+            localVideo: document.getElementById('local-video'),
+            audioCallUi: document.getElementById('audio-call-ui'),
+            cameraBtn: document.getElementById('camera-btn'),
+            cameraIcon: document.getElementById('camera-icon'),
+            screenBtn: document.getElementById('screen-btn'),
+            screenIcon: document.getElementById('screen-icon'),
+
+            toastContainer: document.getElementById('toast-container'),
+            dialerContactLabel: document.getElementById('dialer-contact-label')
+        };
+
+        // --- UI TOGGLES (Mobile Sidebar) ---
+        els.mobileMenuBtn.addEventListener('click', () => {
+            els.sidebar.classList.remove('hidden');
+            els.sidebar.classList.add('absolute', 'inset-y-0', 'left-0', 'w-4/5', 'max-w-[320px]', 'shadow-2xl');
         });
 
-        async function initializeCall() {
-            joinBtn.disabled = true;
-            joinBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Connecting...';
-            errorMsg.classList.add('hidden');
+        els.closeSidebarBtn.addEventListener('click', () => {
+            els.sidebar.classList.add('hidden');
+            els.sidebar.classList.remove('absolute', 'inset-y-0', 'left-0', 'w-4/5', 'max-w-[320px]', 'shadow-2xl');
+        });
+
+        // Initialize setup screen with saved name
+        els.setupNameInput.value = myProfile.name === "Guest User" ? "" : myProfile.name;
+
+        // --- UI Helpers for Modals ---
+        function showModal(formEl) {
+            formEl.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                formEl.classList.remove('opacity-0');
+            }, 10);
+        }
+
+        function hideModal(formEl) {
+            formEl.classList.add('opacity-0');
+            setTimeout(() => {
+                formEl.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- STREAMING_CHUNK: Setup & WebRTC Init ---
+        els.startBtn.addEventListener('click', async () => {
+            // Save newly entered name if provided
+            const enteredName = els.setupNameInput.value.trim();
+            if (enteredName) {
+                myProfile.name = enteredName;
+                localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(myProfile));
+            }
+
+            els.startBtn.disabled = true;
+            els.startBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin text-xl mr-2 inline-block"></i> Connecting...`;
+            els.setupError.classList.add('hidden');
 
             try {
-                // 1. Get microphone access
+                // Init Audio Context
+                await Tone.start();
+                initToneJS();
+
+                // Get Mic Permission
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 
-                // 2. Initialize PeerJS with a completely random ID to avoid collisions
-                peer = new Peer({
+                // Gen Number & Init Peer
+                myNumber = Math.floor(100000 + Math.random() * 900000).toString();
+                const fullPeerId = PEER_PREFIX + myNumber;
+
+                peer = new Peer(fullPeerId, {
                     host: '0.peerjs.com',
                     port: 443,
                     path: '/',
-                    secure: true,
-                    config: {'iceServers': [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]}
+                    secure: true
                 });
 
                 peer.on('open', (id) => {
-                    console.log('My peer ID is: ' + id);
-                    myId = id;
-                    myIdDisplay.innerText = id + (isHost ? " (Room Host)" : "");
+                    console.log('Connected to signaling with ID:', id);
+                    els.myNumDisplay.innerText = `${myNumber.substring(0,3)} ${myNumber.substring(3,6)}`;
+                    els.myNameDisplay.innerText = myProfile.name;
                     
-                    setupSection.classList.add('hidden');
-                    roomSection.classList.remove('hidden');
+                    // Hide setup, show main UI with animation
+                    els.setupScreen.classList.add('opacity-0', 'scale-105');
+                    setTimeout(() => els.setupScreen.classList.add('hidden'), 300);
                     
-                    if (isHost) {
-                        // Host Mode: Set our ID in the URL and display the share link
-                        hostId = id;
-                        window.location.hash = id;
-                        shareLinkInput.value = window.location.href;
-                        knownPeers.push(id); 
-                        setupHostListeners();
-                    } else {
-                        // Guest Mode: Connect to the host using the URL hash
-                        shareLinkInput.value = window.location.href; 
-                        joinRoom(hostId);
-                    }
+                    renderContacts();
                 });
 
-                // Listen for WebRTC media connections
-                peer.on('call', (call) => {
-                    console.log('Incoming audio call from', call.peer);
-                    call.answer(localStream); // Send our microphone stream back
-                    handleCallStream(call);
+                peer.on('call', handleIncomingCall);
+
+                // Listen for incoming data connections (Background Profile Exchanges)
+                peer.on('connection', (conn) => {
+                    conn.on('data', (data) => {
+                        if (data.type === 'PROFILE_EXCHANGE' && data.profile) {
+                            addOrUpdateContact(data.profile.number, data.profile.name);
+                        }
+                    });
                 });
 
                 peer.on('error', (err) => {
                     console.error('Peer error:', err);
-                    showError('Connection error: ' + err.type + '. Ensure WebRTC is not blocked.');
-                    resetUI();
+                    els.setupError.classList.remove('hidden');
+                    document.getElementById('setup-error-text').innerText = "Connection Error: " + err.type;
+                    els.startBtn.disabled = false;
+                    els.startBtn.innerHTML = `Initialize Connection <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>`;
                 });
 
             } catch (err) {
-                console.error('Error accessing microphone:', err);
-                showError('Could not access microphone. Please allow permissions in your browser.');
-                resetUI();
+                console.error("Setup failed:", err);
+                els.setupError.classList.remove('hidden');
+                document.getElementById('setup-error-text').innerText = "Microphone access denied or unavailable. Please check browser permissions.";
+                els.startBtn.disabled = false;
+                els.startBtn.innerHTML = `Try Again <i class="ph-bold ph-arrow-right group-hover:translate-x-1 transition-transform"></i>`;
+            }
+        });
+
+        // Copy Number
+        els.copyNumBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(myNumber).then(() => {
+                const icon = els.copyNumBtn.querySelector('i');
+                icon.classList.replace('ph-copy', 'ph-check');
+                els.copyNumBtn.classList.add('text-emerald-400', 'bg-emerald-900/30');
+                setTimeout(() => {
+                    icon.classList.replace('ph-check', 'ph-copy');
+                    els.copyNumBtn.classList.remove('text-emerald-400', 'bg-emerald-900/30');
+                }, 2000);
+            });
+        });
+
+        // Edit Profile Logic
+        els.editProfileBtn.addEventListener('click', () => {
+            els.editNameInput.value = myProfile.name;
+            showModal(els.editProfileForm);
+        });
+        
+        els.cancelEditProfile.addEventListener('click', () => {
+            hideModal(els.editProfileForm);
+        });
+
+        els.saveProfileBtn.addEventListener('click', () => {
+            const newName = els.editNameInput.value.trim();
+            if (newName) {
+                myProfile.name = newName;
+                localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(myProfile));
+                els.myNameDisplay.innerText = myProfile.name;
+                hideModal(els.editProfileForm);
+            }
+        });
+
+        // --- STREAMING_CHUNK: Dialer & Contacts Logic ---
+        
+        function showToast(message, type = 'error') {
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-red-950/90 border-red-900/50 text-red-200' : 'bg-emerald-950/90 border-emerald-900/50 text-emerald-200';
+            const icon = type === 'error' ? 'ph-warning-circle' : 'ph-check-circle';
+            
+            toast.className = `toast-enter flex items-center gap-3 backdrop-blur-md border px-5 py-4 rounded-xl shadow-2xl ${bgColor} max-w-sm w-max pointer-events-auto`;
+            toast.innerHTML = `<i class="ph-fill ${icon} text-xl"></i><span class="text-sm font-medium leading-relaxed">${message}</span>`;
+            
+            els.toastContainer.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(20px)';
+                toast.style.transition = 'all 0.3s ease-in';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Dialer Input
+        function appendNumber(num) {
+            let current = els.dialInput.value.replace(/\s/g, '');
+            if (current.length < 6) {
+                current += num;
+                formatAndSetDialInput(current);
             }
         }
 
-        // --- HOST LOGIC ---
-        function setupHostListeners() {
-            // Listen for signaling data connections from guests
-            peer.on('connection', (conn) => {
-                conn.on('open', () => {
-                    guestConnections.push(conn);
-                });
-
-                conn.on('data', (data) => {
-                    if (data.type === 'REGISTER') {
-                        const guestId = data.id;
-                        console.log('Guest joined the room:', guestId);
-                        
-                        // Send the new guest the list of everyone currently in the room
-                        conn.send({ type: 'PEER_LIST', peers: knownPeers });
-                        
-                        // Add the guest to the master list so future guests can call them
-                        if (!knownPeers.includes(guestId)) {
-                            knownPeers.push(guestId);
-                        }
-                    }
-                });
-
-                conn.on('close', () => {
-                    guestConnections = guestConnections.filter(c => c !== conn);
-                });
-            });
+        function deleteNumber() {
+            let current = els.dialInput.value.replace(/\s/g, '');
+            current = current.slice(0, -1);
+            formatAndSetDialInput(current);
         }
 
-        // --- GUEST LOGIC ---
-        function joinRoom(targetHostId) {
-            console.log('Connecting to room host:', targetHostId);
-            const conn = peer.connect(targetHostId, { reliable: true });
-
-            conn.on('open', () => {
-                console.log('Connected to host. Registering...');
-                conn.send({ type: 'REGISTER', id: myId });
-            });
-
-            conn.on('data', (data) => {
-                if (data.type === 'PEER_LIST') {
-                    console.log('Received peer list from host:', data.peers);
-                    // Call everyone already in the room
-                    data.peers.forEach(peerId => {
-                        if (peerId !== myId) {
-                            initiateCall(peerId);
-                        }
-                    });
-                }
-            });
+        function formatAndSetDialInput(val) {
+            if (val.length > 3) {
+                els.dialInput.value = val.substring(0,3) + ' ' + val.substring(3);
+            } else {
+                els.dialInput.value = val;
+            }
             
-            conn.on('error', (err) => {
-                showError("Failed to connect to the Room Host. They may have left.");
-            });
-        }
-
-        // --- SHARED MEDIA LOGIC ---
-        function initiateCall(peerId) {
-            if (connections[peerId]) return;
-            console.log('Initiating audio call to peer:', peerId);
-            const call = peer.call(peerId, localStream);
-            handleCallStream(call);
-        }
-
-        function handleCallStream(call) {
-            connections[call.peer] = call;
-            updatePeerCount();
-
-            call.on('stream', (remoteStream) => {
-                // Prevent duplicate audio elements
-                if (!document.getElementById(`audio-${call.peer}`)) {
-                    console.log('Playing stream from', call.peer);
-                    const audioElement = document.createElement('audio');
-                    audioElement.id = `audio-${call.peer}`;
-                    audioElement.srcObject = remoteStream;
-                    
-                    // Critical to bypass browser autoplay restrictions
-                    audioElement.autoplay = true;
-                    audioElement.play().catch(e => console.log('Audio play prevented (User interaction needed):', e));
-                    
-                    audioContainer.appendChild(audioElement);
+            // Smart Dialer: Check if number exists in contacts
+            if (val.length > 0) {
+                const cleanNum = val.replace(/\s/g, '');
+                const contact = contacts.find(c => c.number === cleanNum);
+                
+                if (contact) {
+                    els.dialerContactLabel.innerText = contact.name;
+                    els.dialerContactLabel.classList.remove('opacity-0');
+                } else {
+                    els.dialerContactLabel.classList.add('opacity-0');
                 }
-            });
-
-            call.on('close', () => removeAudioElement(call.peer));
-            call.on('error', () => removeAudioElement(call.peer));
+            } else {
+                els.dialerContactLabel.classList.add('opacity-0');
+            }
         }
 
-        function removeAudioElement(peerId) {
-            const el = document.getElementById(`audio-${peerId}`);
-            if (el) el.remove();
-            delete connections[peerId];
-            updatePeerCount();
+        // Contact Form Toggles
+        els.showAddContactBtn.addEventListener('click', () => showModal(els.addContactForm));
+        els.cancelAddContact.addEventListener('click', () => {
+            hideModal(els.addContactForm);
+            els.contactNameInput.value = '';
+            els.contactNumberInput.value = '';
+        });
+
+        // Save Contact
+        els.saveContactBtn.addEventListener('click', () => {
+            const name = els.contactNameInput.value.trim();
+            const num = els.contactNumberInput.value.trim();
+            
+            if (name && num.length === 6 && !isNaN(num)) {
+                addOrUpdateContact(num, name);
+                els.cancelAddContact.click();
+                showToast(`Contact saved: ${name}`, 'success');
+            } else {
+                showToast("Please enter a valid name and a 6-digit number.");
+            }
+        });
+
+        function addOrUpdateContact(number, name) {
+            const existingIndex = contacts.findIndex(c => c.number === number);
+            if (existingIndex > -1) {
+                contacts[existingIndex].name = name;
+            } else {
+                contacts.push({ id: Date.now(), name, number });
+            }
+            // Save permanently to storage and re-render
+            localStorage.setItem(STORAGE_KEY_CONTACTS, JSON.stringify(contacts));
+            renderContacts();
+        }
+
+        window.deleteContact = function(number, name) {
+            contacts = contacts.filter(c => c.number !== number);
+            localStorage.setItem(STORAGE_KEY_CONTACTS, JSON.stringify(contacts));
+            renderContacts();
+            showToast(`Deleted ${name}`, 'success');
+        };
+
+        function renderContacts() {
+            els.contactsList.innerHTML = '';
+            if (contacts.length === 0) {
+                els.contactsList.innerHTML = `
+                <div class="text-center text-neutral-500 mt-12 text-sm p-8 border-2 border-dashed border-neutral-800 rounded-2xl flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center text-neutral-400">
+                        <i class="ph-fill ph-users text-2xl"></i>
+                    </div>
+                    <div>No contacts saved yet.<br>Click 'New' to add someone.</div>
+                </div>`;
+                return;
+            }
+
+            contacts.sort((a, b) => a.name.localeCompare(b.name));
+
+            contacts.forEach(contact => {
+                const div = document.createElement('div');
+                // Updated contact card styling for OLED
+                div.className = "bg-neutral-950 p-4 rounded-2xl flex justify-between items-center border border-neutral-900 hover:border-neutral-700 transition-all cursor-pointer group active:scale-[0.98]";
+                
+                const colors = ['bg-blue-900/30 text-blue-400', 'bg-emerald-900/30 text-emerald-400', 'bg-purple-900/30 text-purple-400', 'bg-amber-900/30 text-amber-400'];
+                const colorClass = colors[contact.name.length % colors.length];
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl ${colorClass} flex items-center justify-center font-bold text-lg">
+                            ${contact.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white text-base">${contact.name}</h4>
+                            <p class="text-neutral-500 text-xs font-mono tracking-widest mt-1">${contact.number.substring(0,3)} ${contact.number.substring(3,6)}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-500 hover:bg-red-900/40 hover:text-red-400 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100" onclick="event.stopPropagation(); deleteContact('${contact.number}', '${contact.name}')" title="Delete Contact">
+                            <i class="ph-bold ph-trash text-lg"></i>
+                        </button>
+                        <button class="w-10 h-10 rounded-full bg-neutral-900 text-neutral-400 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition-all">
+                            <i class="ph-fill ph-phone text-lg"></i>
+                        </button>
+                    </div>
+                `;
+                
+                div.addEventListener('click', () => {
+                    formatAndSetDialInput(contact.number);
+                    // Close sidebar on mobile after selecting
+                    if (window.innerWidth < 768) {
+                        els.closeSidebarBtn.click();
+                    }
+                    initiateCall();
+                });
+                
+                els.contactsList.appendChild(div);
+            });
+        }
+
+        function getContactName(numberStr) {
+            const cleanNum = numberStr.replace(/\s/g, '').replace(PEER_PREFIX, '');
+            const contact = contacts.find(c => c.number === cleanNum);
+            return contact ? contact.name : cleanNum;
+        }
+
+
+        // --- STREAMING_CHUNK: Audio Feedback (Tone.js) ---
+        function initToneJS() {
+            if (audioInitialized) return;
+            
+            // Standard Synth definitions
+            ringToneSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.1, decay: 0.1, sustain: 1, release: 0.1 }
+            }).toDestination();
+            ringToneSynth.volume.value = -12;
+
+            audioInitialized = true;
+        }
+
+        function playRingbackTone() {
+            if(!audioInitialized) return;
+            Tone.Transport.stop(); Tone.Transport.cancel();
+            
+            // Standard US Ringback cadence (2s on, 4s off)
+            Tone.Transport.scheduleRepeat(() => {
+                ringToneSynth.triggerAttackRelease(["440", "480"], 2);
+            }, 6); 
+            Tone.Transport.start();
+        }
+
+        function playIncomingRingtone() {
+            if(!audioInitialized) return;
+            Tone.Transport.stop(); Tone.Transport.cancel();
+            
+            // Modern, pleasant marimba-like ringing
+            const ringSynth = new Tone.FMSynth({
+                modulationIndex: 2.5,
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 },
+                modulationEnvelope: { attack: 0.1, decay: 0.1, sustain: 0.1, release: 0.1 }
+            }).toDestination();
+            ringSynth.volume.value = -8;
+
+            Tone.Transport.scheduleRepeat((time) => {
+                ringSynth.triggerAttackRelease("E5", "16n", time);
+                ringSynth.triggerAttackRelease("A5", "16n", time + 0.15);
+                ringSynth.triggerAttackRelease("E5", "16n", time + 0.3);
+                ringSynth.triggerAttackRelease("C6", "16n", time + 0.45);
+            }, 2);
+            Tone.Transport.start();
+        }
+
+        function stopAudioTones() {
+            if(Tone.Transport.state === "started") {
+                Tone.Transport.stop();
+                Tone.Transport.cancel();
+            }
+        }
+
+
+        // --- STREAMING_CHUNK: Call Handlers ---
+        
+        els.makeCallBtn.addEventListener('click', initiateCall);
+        els.hangupBtn.addEventListener('click', endCall);
+        els.muteBtn.addEventListener('click', toggleMute);
+
+        els.cameraBtn.addEventListener('click', toggleCamera);
+        els.screenBtn.addEventListener('click', toggleScreenShare);
+
+        function initiateCall() {
+            const targetNum = els.dialInput.value.replace(/\s/g, '');
+            if (targetNum.length !== 6) {
+                showToast("Enter a 6-digit number to call.");
+                return;
+            }
+            if (targetNum === myNumber) {
+                showToast("Cannot call your own number.");
+                return;
+            }
+
+            const targetPeerId = PEER_PREFIX + targetNum;
+            showCallScreen(targetNum, "Calling...", true);
+            
+            // Ensure audio is initialized if they bypass setup somehow
+            if(!audioInitialized) {
+                Tone.start().then(initToneJS).then(playRingbackTone);
+            } else {
+                playRingbackTone();
+            }
+
+            // Pass our profile metadata so the receiver can auto-add us to their contacts
+            currentCall = peer.call(targetPeerId, localStream, { metadata: { profile: myProfile } });
+            
+            if(!currentCall) {
+                endCall();
+                showToast("Call failed initialization.");
+                return;
+            }
+
+            setupCallEvents(currentCall);
+        }
+
+        function handleIncomingCall(call) {
+            if (currentCall) {
+                call.close(); // Busy
+                return;
+            }
+
+            // Ensure audio context is alive
+            if(!audioInitialized) {
+                Tone.start().then(initToneJS).then(playIncomingRingtone);
+            } else {
+                playIncomingRingtone();
+            }
+
+            currentCall = call;
+            const callerNum = call.peer.replace(PEER_PREFIX, '');
+            
+            // Instantly auto-add caller to our contacts if they provided profile metadata
+            if (call.metadata && call.metadata.profile) {
+                addOrUpdateContact(call.metadata.profile.number, call.metadata.profile.name);
+            }
+
+            showCallScreen(callerNum, "Incoming Call", false);
+            playIncomingRingtone();
+            
+            els.answerBtn.onclick = () => {
+                stopAudioTones();
+                els.answerBtn.classList.add('hidden');
+                els.callStatusText.innerText = "Connecting...";
+                els.avatarContainer.classList.remove('animate-radar');
+                els.avatarContainer.classList.remove('border-emerald-500', 'shadow-[0_0_30px_rgba(16,185,129,0.3)]');
+                
+                call.answer(localStream);
+                setupCallEvents(call);
+                
+                // Establish a rapid data connection back to the caller to give them our profile
+                const conn = peer.connect(call.peer);
+                conn.on('open', () => {
+                    conn.send({ type: 'PROFILE_EXCHANGE', profile: myProfile });
+                    setTimeout(() => conn.close(), 2000);
+                });
+            };
+        }
+
+        function setupCallEvents(call) {
+            call.on('stream', (remoteStream) => {
+                stopAudioTones();
+                
+                els.remoteVideo.srcObject = remoteStream;
+                els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
+                
+                // Monitor track additions and state changes for video UI
+                remoteStream.getVideoTracks().forEach(track => {
+                    track.onunmute = checkVideoUI;
+                    track.onmute = checkVideoUI;
+                });
+                
+                remoteStream.onaddtrack = (e) => {
+                    if (e.track.kind === 'video') {
+                        e.track.onunmute = checkVideoUI;
+                        e.track.onmute = checkVideoUI;
+                        checkVideoUI();
+                    }
+                };
+                
+                // Update UI connected state
+                els.callStatusText.innerText = "Connected";
+                els.callStatusText.classList.replace('text-emerald-500', 'text-blue-400');
+                
+                els.avatarContainer.classList.remove('animate-radar', 'animate-ringing');
+                els.avatarContainer.classList.add('border-blue-500', 'shadow-[0_0_40px_rgba(59,130,246,0.2)]');
+                els.avatarContainer.querySelector('i').classList.replace('text-neutral-600', 'text-blue-400');
+                
+                els.answerBtn.classList.add('hidden');
+                els.muteBtn.classList.remove('hidden');
+                els.cameraBtn.classList.remove('hidden');
+                
+                // Show screen share conditionally
+                if (window.innerWidth >= 768) {
+                    els.screenBtn.classList.remove('hidden');
+                    els.screenBtn.classList.add('md:flex');
+                }
+                
+                startTimer();
+                startAudioVisualizer(remoteStream);
+                checkVideoUI();
+            });
+
+            call.on('close', endCall);
+            call.on('error', endCall);
+        }
+
+        function endCall() {
+            if (currentCall) {
+                currentCall.close();
+                currentCall = null;
+            }
+            
+            stopAudioTones();
+            stopTimer();
+            stopAudioVisualizer();
+            
+            if(isMuted) toggleMute();
+            
+            // Clean up video streams
+            if (localVideoStream) stopCamera();
+            if (localScreenStream) stopScreenShare();
+            els.remoteVideo.srcObject = null;
+            checkVideoUI();
+            
+            // Hide action buttons
+            els.cameraBtn.classList.add('hidden');
+            els.screenBtn.classList.add('hidden');
+            els.screenBtn.classList.remove('md:flex');
+            
+            // Switch UI back to dialer
+            els.callView.classList.add('opacity-0');
+            setTimeout(() => {
+                els.callView.classList.add('hidden');
+                els.dialerView.classList.remove('hidden', 'opacity-0');
+            }, 300);
+
+            els.hangupBtn.onclick = endCall;
         }
 
         function toggleMute() {
             if (!localStream) return;
             isMuted = !isMuted;
             
-            // Toggle all audio tracks (mute/unmute mic)
             localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
 
-            // UI Updates
             if (isMuted) {
-                muteBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20', 'mic-active');
-                muteBtn.classList.add('bg-red-600', 'hover:bg-red-500', 'shadow-red-500/20');
-                micIcon.classList.add('hidden');
-                micOffIcon.classList.remove('hidden');
-                muteText.innerText = 'Microphone Muted';
-                muteText.classList.replace('text-slate-300', 'text-red-400');
+                els.muteBtn.classList.replace('bg-neutral-800', 'bg-amber-600');
+                els.muteBtn.classList.replace('hover:bg-neutral-700', 'hover:bg-amber-500');
+                els.muteBtn.classList.add('shadow-[0_0_15px_rgba(217,119,6,0.3)]');
+                els.muteIcon.classList.replace('ph-microphone', 'ph-microphone-slash');
             } else {
-                muteBtn.classList.remove('bg-red-600', 'hover:bg-red-500', 'shadow-red-500/20');
-                muteBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500', 'shadow-emerald-500/20', 'mic-active');
-                micIcon.classList.remove('hidden');
-                micOffIcon.classList.add('hidden');
-                muteText.innerText = 'Microphone On';
-                muteText.classList.replace('text-red-400', 'text-slate-300');
+                els.muteBtn.classList.replace('bg-amber-600', 'bg-neutral-800');
+                els.muteBtn.classList.replace('hover:bg-amber-500', 'hover:bg-neutral-700');
+                els.muteBtn.classList.remove('shadow-[0_0_15px_rgba(217,119,6,0.3)]');
+                els.muteIcon.classList.replace('ph-microphone-slash', 'ph-microphone');
             }
         }
 
-        function updatePeerCount() {
-            peerCountEl.innerText = Object.keys(connections).length;
+        let localVideoStream = null;
+        let localScreenStream = null;
+
+        async function toggleCamera() {
+            if (!localVideoStream) {
+                try {
+                    localVideoStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } } });
+                    const videoTrack = localVideoStream.getVideoTracks()[0];
+                    
+                    videoTrack.onended = () => stopCamera();
+
+                    els.localVideo.srcObject = localVideoStream;
+                    // Mirror effect for front facing camera
+                    els.localVideo.classList.add('scale-x-[-1]'); 
+                    
+                    if (localScreenStream) stopScreenShare();
+
+                    if (currentCall && currentCall.peerConnection) {
+                        const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(videoTrack);
+                        } else {
+                            currentCall.peerConnection.addTrack(videoTrack, localStream);
+                        }
+                    }
+                    
+                    els.cameraBtn.classList.replace('bg-neutral-800/80', 'bg-blue-600');
+                    els.cameraBtn.classList.replace('hover:bg-neutral-700', 'hover:bg-blue-500');
+                    els.cameraIcon.classList.replace('ph-video-camera-slash', 'ph-video-camera');
+                    checkVideoUI();
+                } catch(err) {
+                    console.error(err);
+                    showToast("Camera access denied.");
+                }
+            } else {
+                stopCamera();
+            }
         }
 
-        function showError(msg) {
-            errorMsg.innerText = msg;
-            errorMsg.classList.remove('hidden');
+        function stopCamera() {
+            if (localVideoStream) {
+                localVideoStream.getTracks().forEach(t => t.stop());
+                localVideoStream = null;
+            }
+            if (currentCall && currentCall.peerConnection) {
+                const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(null);
+                }
+            }
+            
+            if (!localScreenStream) els.localVideo.srcObject = null;
+            
+            els.cameraBtn.classList.replace('bg-blue-600', 'bg-neutral-800/80');
+            els.cameraBtn.classList.replace('hover:bg-blue-500', 'hover:bg-neutral-700');
+            els.cameraIcon.classList.replace('ph-video-camera', 'ph-video-camera-slash');
+            checkVideoUI();
         }
 
-        function resetUI() {
-            joinBtn.disabled = false;
-            joinBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-                <span id="join-btn-text">Try Again</span>
-            `;
+        async function toggleScreenShare() {
+            if (!localScreenStream) {
+                try {
+                    localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                    const screenTrack = localScreenStream.getVideoTracks()[0];
+                    
+                    screenTrack.onended = () => stopScreenShare();
+
+                    els.localVideo.srcObject = localScreenStream;
+                    // Remove mirror effect for screen sharing
+                    els.localVideo.classList.remove('scale-x-[-1]'); 
+                    
+                    if (localVideoStream) stopCamera();
+
+                    if (currentCall && currentCall.peerConnection) {
+                        const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (sender) {
+                            sender.replaceTrack(screenTrack);
+                        } else {
+                            currentCall.peerConnection.addTrack(screenTrack, localStream);
+                        }
+                    }
+                    
+                    els.screenBtn.classList.replace('bg-neutral-800/80', 'bg-purple-600');
+                    els.screenBtn.classList.replace('hover:bg-neutral-700', 'hover:bg-purple-500');
+                    checkVideoUI();
+                } catch(err) {
+                    console.error(err);
+                    showToast("Screen sharing cancelled.");
+                }
+            } else {
+                stopScreenShare();
+            }
         }
-        
-        window.addEventListener('beforeunload', () => {
-            if (peer) peer.destroy();
-        });
+
+        function stopScreenShare() {
+            if (localScreenStream) {
+                localScreenStream.getTracks().forEach(t => t.stop());
+                localScreenStream = null;
+            }
+            if (currentCall && currentCall.peerConnection) {
+                const sender = currentCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(null);
+                }
+            }
+            
+            if (!localVideoStream) els.localVideo.srcObject = null;
+            
+            els.screenBtn.classList.replace('bg-purple-600', 'bg-neutral-800/80');
+            els.screenBtn.classList.replace('hover:bg-purple-500', 'hover:bg-neutral-700');
+            checkVideoUI();
+        }
+
+        function checkVideoUI() {
+            const remoteStream = els.remoteVideo.srcObject;
+            let hasRemoteVideo = false;
+            if (remoteStream) {
+                hasRemoteVideo = remoteStream.getVideoTracks().some(t => !t.muted && t.readyState === 'live' && t.enabled);
+            }
+            const hasLocalVideo = !!(localVideoStream || localScreenStream);
+            
+            if (!hasRemoteVideo && !hasLocalVideo) {
+                els.videoContainer.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => { if(!hasRemoteVideo && !hasLocalVideo) els.videoContainer.classList.add('hidden') }, 500);
+                
+                els.audioCallUi.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                els.videoContainer.classList.remove('hidden');
+                setTimeout(() => els.videoContainer.classList.remove('opacity-0', 'pointer-events-none'), 10);
+                
+                els.audioCallUi.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // --- STREAMING_CHUNK: View Helpers & Timer ---
+        function showCallScreen(number, status, isOutgoing) {
+            // Swap Views with animation
+            els.dialerView.classList.add('scale-95', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => els.dialerView.classList.add('hidden'), 500);
+            
+            els.callView.classList.remove('hidden');
+            // small delay for transition effect
+            setTimeout(() => {
+                els.callView.classList.remove('opacity-0', 'scale-95');
+                els.callView.classList.add('opacity-100', 'scale-100');
+            }, 50);
+            
+            const contactName = getContactName(number);
+            els.callRemoteNumber.innerText = contactName !== number 
+                ? contactName 
+                : `${number.substring(0,3)} ${number.substring(3,6)}`;
+                
+            els.callStatusText.innerText = status;
+            els.callStatusText.className = "font-bold text-sm uppercase tracking-[0.2em] mb-4 text-emerald-500";
+            els.callTimerContainer.classList.add('hidden');
+            
+            // Reset Avatar styling
+            els.avatarContainer.className = "w-36 h-36 rounded-full bg-neutral-900 border-4 border-neutral-800 flex items-center justify-center relative z-10 transition-all duration-500";
+            els.avatarContainer.querySelector('i').className = "ph-fill ph-user text-6xl text-neutral-600 transition-colors";
+            
+            els.muteBtn.classList.add('hidden');
+            els.cameraBtn.classList.add('hidden');
+            els.screenBtn.classList.add('hidden');
+            els.screenBtn.classList.remove('md:flex');
+
+            if (isOutgoing) {
+                els.answerBtn.classList.add('hidden');
+                // Simulate a ringing outgoing state visually
+                els.avatarContainer.classList.add('border-blue-500', 'animate-ringing');
+            } else {
+                els.answerBtn.classList.remove('hidden');
+                els.avatarContainer.classList.add('animate-radar', 'border-emerald-500', 'shadow-[0_0_30px_rgba(16,185,129,0.3)]'); // Radar effect for incoming
+                els.avatarContainer.querySelector('i').classList.replace('text-neutral-600', 'text-emerald-400');
+            }
+        }
+
+        function startTimer() {
+            els.callTimerContainer.classList.remove('hidden');
+            callSeconds = 0;
+            updateTimerDisplay();
+            
+            if(callTimerInterval) clearInterval(callTimerInterval);
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if(callTimerInterval) clearInterval(callTimerInterval);
+            els.callTimerContainer.classList.add('hidden');
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+            const s = (callSeconds % 60).toString().padStart(2, '0');
+            els.callTimer.innerText = `${m}:${s}`;
+        }
+
+        // --- STREAMING_CHUNK: Audio Visualizer ---
+        function startAudioVisualizer(stream) {
+            stopAudioVisualizer(); // Ensure clean state
+            
+            try {
+                // Initialize Web Audio API
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                
+                audioContext = new AudioCtx();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyzer = audioContext.createAnalyser();
+                analyzer.fftSize = 256;
+                source.connect(analyzer);
+                
+                const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+                els.avatarContainer.classList.add('audio-pulse');
+                
+                function draw() {
+                    if (!audioContext) return;
+                    visualizerAnimationFrame = requestAnimationFrame(draw);
+                    analyzer.getByteFrequencyData(dataArray);
+                    
+                    let sum = 0;
+                    for(let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const average = sum / dataArray.length;
+                    
+                    // Map volume (0-255) to scale & glow dynamically
+                    const scale = 1 + (average / 255) * 0.25;
+                    els.avatarContainer.style.transform = `scale(${scale})`;
+                    
+                    if (average > 15) {
+                        const intensity = average / 255;
+                        els.avatarContainer.style.boxShadow = `0 0 ${40 + (intensity * 60)}px rgba(59,130,246, ${0.2 + intensity})`;
+                        els.avatarContainer.style.borderColor = `rgba(59,130,246, ${0.5 + intensity})`;
+                    } else {
+                        els.avatarContainer.style.boxShadow = `0 0 40px rgba(59,130,246,0.2)`;
+                        els.avatarContainer.style.borderColor = `rgb(59,130,246)`;
+                    }
+                }
+                
+                draw();
+            } catch (err) {
+                console.warn("Visualizer unavailable:", err);
+            }
+        }
+
+        function stopAudioVisualizer() {
+            if (visualizerAnimationFrame) {
+                cancelAnimationFrame(visualizerAnimationFrame);
+                visualizerAnimationFrame = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close().catch(console.error);
+                audioContext = null;
+            }
+            els.avatarContainer.classList.remove('audio-pulse');
+            els.avatarContainer.style.transform = '';
+            els.avatarContainer.style.boxShadow = '';
+            els.avatarContainer.style.borderColor = '';
+        }
+
     </script>
 </body>
 </html>
