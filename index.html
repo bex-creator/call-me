@@ -110,7 +110,10 @@
         </div>
     </div>
 
-    <aside id="sidebar" class="w-full md:w-[380px] flex-shrink-0 bg-black border-r border-neutral-900 flex flex-col h-full hidden md:flex transition-all z-20 relative">
+    <!-- Mobile Backdrop -->
+    <div id="mobile-backdrop" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-30 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+
+    <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 w-[85%] max-w-[320px] md:w-[380px] flex-shrink-0 bg-black md:border-r border-neutral-900 flex flex-col h-full z-40 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl md:shadow-none">
         
         <!-- App Header & Profile -->
         <div class="p-6 border-b border-neutral-900 bg-black z-10 relative">
@@ -259,8 +262,8 @@
         </div>
 
         <!-- The Dialer View -->
-        <div id="dialer-view" class="flex-1 flex flex-col items-center justify-center p-6 transition-all duration-500 transform">
-            <div class="w-full max-w-sm flex flex-col items-center bg-neutral-950 p-8 md:p-10 rounded-[2.5rem] border border-neutral-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+        <div id="dialer-view" class="flex-1 flex flex-col items-center justify-center p-4 md:p-6 transition-all duration-500 transform">
+            <div class="w-full max-w-sm flex flex-col items-center bg-neutral-950 p-6 md:p-10 rounded-[2.5rem] border border-neutral-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
                 
                 <h2 class="text-neutral-500 font-semibold text-sm uppercase tracking-widest mb-2">Make a Call</h2>
 
@@ -268,24 +271,24 @@
                 <div id="dialer-contact-label" class="h-6 mb-4 text-emerald-400 font-bold text-sm tracking-widest uppercase opacity-0 transition-opacity text-center w-full truncate px-4"></div>
 
                 <!-- Display -->
-                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-24 flex items-center justify-center mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
+                <div class="w-full bg-black border border-neutral-800 rounded-2xl h-20 md:h-24 flex items-center justify-center mb-6 md:mb-8 relative overflow-hidden group shadow-[inset_0_0_20px_rgba(255,255,255,0.02)]">
                     <input type="text" id="dial-input" readonly class="bg-transparent text-center text-4xl md:text-5xl font-bold text-white w-full outline-none tracking-[0.15em] placeholder-neutral-700 relative z-10" placeholder="000 000">
                 </div>
                 
                 <!-- Modern Numpad -->
-                <div class="grid grid-cols-3 gap-4 md:gap-5 mb-8 w-full">
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
+                <div class="grid grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-8 w-full">
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('1')">1</button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('2')">2<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">ABC</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('3')">3<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">DEF</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('4')">4<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">GHI</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('5')">5<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">JKL</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('6')">6<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">MNO</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('7')">7<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">PQRS</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('8')">8<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">TUV</span></button>
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('9')">9<span class="text-[8px] sm:text-[9px] text-neutral-500 mt-0.5 tracking-widest uppercase font-semibold">WXYZ</span></button>
                     <div></div>
-                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
-                    <button class="numpad-btn text-neutral-500 text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
+                    <button class="numpad-btn bg-neutral-900 border border-neutral-800 text-white text-2xl sm:text-3xl font-medium rounded-2xl aspect-square flex flex-col items-center justify-center hover:bg-neutral-800 hover:border-neutral-700 transition-all active:scale-95" onclick="appendNumber('0')">0</button>
+                    <button class="numpad-btn text-neutral-500 text-2xl sm:text-3xl aspect-square rounded-2xl flex items-center justify-center hover:bg-red-950 hover:text-red-500 transition-colors active:scale-95" onclick="deleteNumber()">
                         <i class="ph-fill ph-backspace"></i>
                     </button>
                 </div>
@@ -317,7 +320,7 @@
             <div id="video-container" class="absolute inset-0 z-0 opacity-0 pointer-events-none bg-neutral-950 transition-opacity duration-500">
                 <video id="remote-video" class="w-full h-full object-cover" autoplay playsinline></video>
                 <!-- Local Video PiP -->
-                <div class="absolute top-20 right-4 md:top-6 md:right-6 w-28 md:w-48 aspect-[3/4] bg-neutral-900 rounded-2xl border-2 border-neutral-800 shadow-2xl overflow-hidden z-10 transition-all">
+                <div class="absolute top-20 right-4 md:top-6 md:right-6 w-24 md:w-48 aspect-[3/4] bg-neutral-900 rounded-2xl border-2 border-neutral-800 shadow-2xl overflow-hidden z-10 transition-all">
                     <video id="local-video" class="w-full h-full object-cover transform scale-x-[-1]" autoplay playsinline muted></video>
                 </div>
             </div>
@@ -334,12 +337,12 @@
                 <!-- Status & Name -->
                 <div class="text-center mb-16">
                     <p id="call-status-text" class="text-emerald-500 font-bold text-sm uppercase tracking-[0.2em] mb-4">Connecting...</p>
-                    <h2 id="call-remote-number" class="text-5xl md:text-6xl font-extrabold text-white mb-6 tracking-tight drop-shadow-lg">123 456</h2>
+                    <h2 id="call-remote-number" class="text-4xl md:text-6xl font-extrabold text-white mb-6 tracking-tight drop-shadow-lg">123 456</h2>
                 </div>
             </div>
 
             <!-- Call Controls (Action Bar) -->
-            <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 bg-neutral-900/90 backdrop-blur-xl border border-neutral-800/50 p-4 md:p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3 md:gap-5 z-20 w-max">
+            <div class="absolute bottom-6 md:bottom-8 left-1/2 transform -translate-x-1/2 bg-neutral-900/90 backdrop-blur-xl border border-neutral-800/50 p-3 md:p-5 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center justify-center gap-2 md:gap-5 z-20 w-[92%] max-w-max flex-wrap">
                 
                 <!-- Answer (Incoming only) -->
                 <button id="answer-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center hidden hover:bg-emerald-500 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:scale-110 active:scale-95" title="Answer Call">
@@ -374,7 +377,7 @@
         </div>
         
         <!-- Toast Notification Container -->
-        <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+        <div id="toast-container" class="fixed top-20 md:top-5 right-4 md:right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
 
     </main>
 
@@ -436,6 +439,7 @@
             splashText: document.getElementById('splash-text'),
             
             sidebar: document.getElementById('sidebar'),
+            mobileBackdrop: document.getElementById('mobile-backdrop'),
             mobileMenuBtn: document.getElementById('mobile-menu-btn'),
             closeSidebarBtn: document.getElementById('close-sidebar-btn'),
             
@@ -498,13 +502,19 @@
 
         // --- UI TOGGLES (Mobile Sidebar) ---
         els.mobileMenuBtn.addEventListener('click', () => {
-            els.sidebar.classList.remove('hidden');
-            els.sidebar.classList.add('absolute', 'inset-y-0', 'left-0', 'w-4/5', 'max-w-[320px]', 'shadow-2xl');
+            els.sidebar.classList.remove('-translate-x-full');
+            els.mobileBackdrop.classList.remove('hidden');
+            setTimeout(() => els.mobileBackdrop.classList.remove('opacity-0'), 10);
         });
 
         els.closeSidebarBtn.addEventListener('click', () => {
-            els.sidebar.classList.add('hidden');
-            els.sidebar.classList.remove('absolute', 'inset-y-0', 'left-0', 'w-4/5', 'max-w-[320px]', 'shadow-2xl');
+            els.sidebar.classList.add('-translate-x-full');
+            els.mobileBackdrop.classList.add('opacity-0');
+            setTimeout(() => els.mobileBackdrop.classList.add('hidden'), 300);
+        });
+
+        els.mobileBackdrop.addEventListener('click', () => {
+            els.closeSidebarBtn.click();
         });
 
         // --- UI Helpers for Modals ---
