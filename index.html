@@ -307,7 +307,7 @@
             </div>
 
             <!-- Video Container -->
-            <div id="video-container" class="absolute inset-0 z-0 hidden opacity-0 pointer-events-none bg-neutral-950 transition-opacity duration-500">
+            <div id="video-container" class="absolute inset-0 z-0 opacity-0 pointer-events-none bg-neutral-950 transition-opacity duration-500">
                 <video id="remote-video" class="w-full h-full object-cover" autoplay playsinline></video>
                 <!-- Local Video PiP -->
                 <div class="absolute top-20 right-4 md:top-6 md:right-6 w-28 md:w-48 aspect-[3/4] bg-neutral-900 rounded-2xl border-2 border-neutral-800 shadow-2xl overflow-hidden z-10 transition-all">
@@ -880,6 +880,8 @@
 
             try {
                 await ensureMediaAccess();
+                // Pre-warm the media element during a user gesture to bypass strict autoplay policies
+                els.remoteVideo.play().catch(e => console.log("Pre-play bypassed"));
             } catch (e) {
                 return; // Mic access failed/denied
             }
@@ -949,6 +951,8 @@
                 
                 try {
                     await ensureMediaAccess();
+                    // Pre-warm the media element during a user gesture to bypass strict autoplay policies
+                    els.remoteVideo.play().catch(e => console.log("Pre-play bypassed"));
                 } catch(e) {
                     endCall();
                     return;
@@ -976,8 +980,11 @@
             call.on('stream', (remoteStream) => {
                 stopAudioTones();
                 
-                els.remoteVideo.srcObject = remoteStream;
-                els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
+                // Only assign if it's a new stream to prevent interrupting active audio
+                if (els.remoteVideo.srcObject !== remoteStream) {
+                    els.remoteVideo.srcObject = remoteStream;
+                    els.remoteVideo.play().catch(e => console.error("Audio/Video block:", e));
+                }
                 
                 voicemailStream = remoteStream;
 
@@ -1330,17 +1337,9 @@
             
             if (!hasRemoteVideo && !hasLocalVideo) {
                 els.videoContainer.classList.add('opacity-0', 'pointer-events-none');
-                setTimeout(() => { 
-                    if(els.videoContainer.classList.contains('opacity-0')) {
-                        els.videoContainer.classList.add('hidden');
-                    }
-                }, 500);
-                
                 els.audioCallUi.classList.remove('opacity-0', 'pointer-events-none');
             } else {
-                els.videoContainer.classList.remove('hidden');
-                setTimeout(() => els.videoContainer.classList.remove('opacity-0', 'pointer-events-none'), 10);
-                
+                els.videoContainer.classList.remove('opacity-0', 'pointer-events-none');
                 els.audioCallUi.classList.add('opacity-0', 'pointer-events-none');
             }
         }
